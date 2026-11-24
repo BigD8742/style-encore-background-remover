@@ -8,7 +8,7 @@
 <style>
   :root {
     --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --muted: #6e6e73;
-    --accent: #0a7a5a; --accent-ink: #ffffff; --line: #d9d9de; --bad: #c0392b;
+    --accent: #0a7a5a; --accent-ink: #ffffff; --accent-soft: #eefaf5; --line: #d9d9de; --bad: #c0392b;
   }
   * { box-sizing: border-box; }
   body {
@@ -24,42 +24,62 @@
     display: block; text-align: center; border: 2px dashed var(--line); border-radius: 14px;
     padding: 26px 12px; background: var(--card); cursor: pointer; margin-bottom: 14px;
   }
-  .drop.over { border-color: var(--accent); background: #eefaf5; }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
   .drop strong { display: block; font-size: 17px; }
   .drop span { color: var(--muted); font-size: 14px; }
   input[type=file] { display: none; }
-  .opts { display: grid; gap: 10px; }
-  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .opts { display: grid; gap: 14px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .row > span { font-weight: 600; }
   select { font-size: 16px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
-  label.chk { display: flex; align-items: center; gap: 8px; }
-  input[type=checkbox] { width: 20px; height: 20px; }
+  .range { display: flex; align-items: center; gap: 10px; flex: 1 1 200px; justify-content: flex-end; }
+  .range input { flex: 1; max-width: 220px; accent-color: var(--accent); }
+  .range output { width: 40px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .seg { display: inline-flex; background: #e8e8ed; border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg button { background: transparent; color: var(--ink); padding: 7px 12px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+  .seg button.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .hint { font-size: 13px; color: var(--muted); margin: -6px 0 0; }
   .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   button, a.btn {
     font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 12px 16px;
     background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none; text-align: center;
   }
-  button.secondary, a.btn.secondary { background: #e8e8ed; color: var(--ink); }
+  button.secondary { background: #e8e8ed; color: var(--ink); }
   button:disabled { opacity: .45; cursor: default; }
   .btns button { flex: 1 1 140px; }
   .status { font-size: 14px; color: var(--muted); margin: 0 0 12px; min-height: 20px; }
   .bar { height: 8px; background: #e8e8ed; border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
   .bar > i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .2s; }
-  .list { display: grid; gap: 10px; }
-  .item { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
-  .thumb { width: 72px; height: 72px; border-radius: 10px; background: #fff; border: 1px solid var(--line); object-fit: contain; flex: none; }
+  .list { display: grid; gap: 12px; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+  .head { display: flex; gap: 12px; align-items: center; }
+  .thumb { width: 56px; height: 56px; border-radius: 10px; background: #fff; border: 1px solid var(--line); object-fit: cover; flex: none; }
   .meta { min-width: 0; flex: 1; }
   .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .state { font-size: 13px; color: var(--muted); }
   .state.ok { color: var(--accent); }
   .state.err { color: var(--bad); }
-  .item a.btn { padding: 8px 12px; font-size: 14px; flex: none; }
+  .head button { padding: 8px 12px; font-size: 14px; flex: none; }
+  .variants { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; align-items: end; }
+  .variant {
+    position: relative; display: block; width: 100%; padding: 6px; border-radius: 12px;
+    background: #fff; color: var(--ink); border: 2px solid var(--line); font-weight: 500;
+  }
+  .variant canvas { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid #eee; }
+  .variant .lbl { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 2px 0; }
+  .variant .tick {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: inline-grid; place-items: center;
+    font-size: 13px; color: transparent;
+  }
+  .variant.on { border-color: var(--accent); background: var(--accent-soft); }
+  .variant.on .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
   .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
 </style>
 </head>
 <body>
 <main>
   <h1>White Background Maker</h1>
-  <p class="sub">Pick your product photos. Each one comes back with the background removed, on plain white.</p>
+  <p class="sub">Pick your product photos. Each one comes back on plain white, centered, in square and portrait. Tap the ones you want to keep.</p>
 
   <label class="drop" id="drop">
     <input type="file" id="file" accept="image/*" multiple>
@@ -69,19 +89,31 @@
 
   <div class="panel opts">
     <div class="row">
-      <span>Output size (long side)</span>
+      <span>Output size</span>
       <select id="size">
-        <option value="1600">1600 px</option>
-        <option value="2000" selected>2000 px</option>
-        <option value="2400">2400 px</option>
+        <option value="1080">Instagram (1080 wide)</option>
+        <option value="2000" selected>Website (2000 wide)</option>
+        <option value="2400">Large (2400 wide)</option>
       </select>
     </div>
-    <label class="chk"><input type="checkbox" id="square"> Make each image square (white padding)</label>
+    <div class="row">
+      <span>Space around product</span>
+      <div class="range"><input type="range" id="margin" min="0" max="25" step="1" value="8"><output id="marginOut">8%</output></div>
+    </div>
+    <div class="row">
+      <span>Keep</span>
+      <div class="seg" id="pick">
+        <button type="button" data-pick="square" class="on">Square</button>
+        <button type="button" data-pick="portrait">Portrait</button>
+        <button type="button" data-pick="both">Both</button>
+      </div>
+    </div>
+    <p class="hint">"Keep" sets every photo at once. You can still tap a picture below to add or remove it. Square is 1:1, portrait is 4:5 (Instagram's tall post).</p>
   </div>
 
   <div class="btns">
     <button id="start" disabled>Remove backgrounds</button>
-    <button id="saveAll" class="secondary" disabled>Save all</button>
+    <button id="saveAll" class="secondary" disabled>Save selected</button>
     <button id="clear" class="secondary" disabled>Clear</button>
   </div>
 
@@ -92,7 +124,7 @@
 
   <p class="note">
     Everything runs on this device. Your photos are never uploaded.
-    The first run downloads the AI model (about 40 MB) and may take a minute; after that it is much faster.
+    The first run downloads the AI model (about 90 MB, best on Wi-Fi) and may take a minute; after that it is much faster.
     Keep this screen open while it works.
   </p>
 </main>
@@ -104,46 +136,65 @@ const $ = (id) => document.getElementById(id);
 const fileInput = $("file"), drop = $("drop"), listEl = $("list");
 const startBtn = $("start"), saveBtn = $("saveAll"), clearBtn = $("clear");
 const statusEl = $("status"), barFill = $("barFill");
+const sizeEl = $("size"), marginEl = $("margin"), marginOut = $("marginOut"), pickEl = $("pick");
 
-let items = [];          // { file, el, thumb, stateEl, linkEl, result: Blob|null, outName }
+const PROCESS_SIDE = 2048;   // photos are shrunk to this before the AI runs (keeps phones from running out of memory)
+const PREVIEW_W = 360;       // preview canvas width in pixels
+const RATIO = { square: 1, portrait: 1.25 };   // height / width
+const LABEL = { square: "Square 1:1", portrait: "Portrait 4:5" };
+
+let items = [];   // see addFiles
 let running = false;
-let modelName = "isnet_quint8";
+// The standard model gives clean cutouts. The smaller "quint8" model leaves haze from the old
+// background, so it is only a fallback if the standard one cannot load.
+let modelName = "isnet_fp16";
+let defaultPick = "square";
+let pendingShare = null;   // files ready to share when the browser needs a fresh tap
+
+const settings = () => ({ width: parseInt(sizeEl.value, 10), margin: parseInt(marginEl.value, 10) });
 
 function setStatus(t) { statusEl.textContent = t; }
 function setBar(p) { barFill.style.width = Math.max(0, Math.min(100, p)) + "%"; }
+const pickSet = (p) => new Set(p === "both" ? ["square", "portrait"] : [p]);
 
 function addFiles(fileList) {
   const files = [...fileList].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
   for (const file of files) {
     const el = document.createElement("div");
     el.className = "item";
-    const thumb = document.createElement("img");
-    thumb.className = "thumb";
-    thumb.alt = "";
+    el.innerHTML = '<div class="head"><img class="thumb" alt=""><div class="meta"><div class="name"></div><div class="state">Waiting</div></div></div>';
     const thumbUrl = URL.createObjectURL(file);
-    thumb.src = thumbUrl;
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    const nameEl = document.createElement("div");
-    nameEl.className = "name";
-    nameEl.textContent = file.name;
-    const stateEl = document.createElement("div");
-    stateEl.className = "state";
-    stateEl.textContent = "Waiting";
-    meta.append(nameEl, stateEl);
-    el.append(thumb, meta);
+    el.querySelector(".thumb").src = thumbUrl;
+    el.querySelector(".name").textContent = file.name;
     listEl.append(el);
-    const base = file.name.replace(/\.[^.]+$/, "") || "photo";
-    items.push({ file, el, thumb, thumbUrl, stateEl, linkEl: null, result: null, resultUrl: null, outName: base + "-white.jpg" });
+    const base = (file.name.replace(/\.[^.]+$/, "") || "photo").replace(/[^\w\- ]+/g, "").trim() || "photo";
+    items.push({
+      file, el, thumbUrl, base,
+      stateEl: el.querySelector(".state"),
+      cut: null,          // PNG blob of the cutout (transparent background)
+      box: null,          // { x, y, w, h } of the product inside the cutout
+      small: null,        // small canvas of just the product, for fast previews
+      canvases: {},       // preview canvases by variant
+      cards: {},          // preview buttons by variant
+      chosen: pickSet(defaultPick),
+      cache: new Map()    // finished full-size JPEGs, keyed by variant and settings
+    });
   }
   refreshButtons();
   setStatus(items.length ? items.length + " photo" + (items.length === 1 ? "" : "s") + " ready." : "");
 }
 
+function selectedCount() {
+  return items.reduce((n, i) => n + (i.cut ? i.chosen.size : 0), 0);
+}
+
 function refreshButtons() {
-  const pending = items.some(i => !i.result);
+  const pending = items.some(i => !i.cut);
   startBtn.disabled = running || !items.length || !pending;
-  saveBtn.disabled = running || !items.some(i => i.result);
+  const n = selectedCount();
+  saveBtn.disabled = running || !n;
+  saveBtn.classList.toggle("secondary", !pendingShare);
+  saveBtn.textContent = pendingShare ? "Tap again to save " + pendingShare.length : n ? "Save selected (" + n + ")" : "Save selected";
   clearBtn.disabled = running || !items.length;
 }
 
@@ -153,15 +204,36 @@ fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInpu
 drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
 
 clearBtn.addEventListener("click", () => {
-  for (const i of items) { URL.revokeObjectURL(i.thumbUrl); if (i.resultUrl) URL.revokeObjectURL(i.resultUrl); }
-  items = []; listEl.innerHTML = ""; setBar(0); setStatus(""); refreshButtons();
+  for (const i of items) URL.revokeObjectURL(i.thumbUrl);
+  items = []; pendingShare = null; listEl.innerHTML = ""; setBar(0); setStatus(""); refreshButtons();
 });
 
-function loadImage(url) {
+pickEl.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-pick]");
+  if (!b) return;
+  defaultPick = b.dataset.pick;
+  for (const x of pickEl.querySelectorAll("button")) x.classList.toggle("on", x === b);
+  for (const i of items) { i.chosen = pickSet(defaultPick); paintChoice(i); }
+  pendingShare = null;
+  refreshButtons();
+});
+
+marginEl.addEventListener("input", () => {
+  marginOut.textContent = marginEl.value + "%";
+  pendingShare = null;
+  for (const i of items) if (i.small) drawPreviews(i);
+  refreshButtons();
+});
+sizeEl.addEventListener("change", () => { pendingShare = null; refreshButtons(); });
+
+// ---------- image helpers ----------
+
+function loadImage(src) {
   return new Promise((resolve, reject) => {
+    const url = src instanceof Blob ? URL.createObjectURL(src) : src;
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Could not read this image"));
+    img.onload = () => { if (src instanceof Blob) URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { if (src instanceof Blob) URL.revokeObjectURL(url); reject(new Error("Could not read this image")); };
     img.src = url;
   });
 }
@@ -172,104 +244,170 @@ function canvasToBlob(canvas, type, q) {
   });
 }
 
-// Shrink the photo so very large iPhone pictures do not run the device out of memory.
-async function prepareInput(file, maxSide) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await loadImage(url);
-    const w = img.naturalWidth, h = img.naturalHeight;
-    const scale = Math.min(1, maxSide / Math.max(w, h));
-    const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
-    const c = document.createElement("canvas");
-    c.width = cw; c.height = ch;
-    c.getContext("2d").drawImage(img, 0, 0, cw, ch);
-    const blob = await canvasToBlob(c, "image/jpeg", 0.95);
-    c.width = c.height = 0;
-    return blob;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+function makeCanvas(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+
+// Shrink very large phone pictures before the AI runs.
+async function prepareInput(file) {
+  const img = await loadImage(file);
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const scale = Math.min(1, PROCESS_SIDE / Math.max(w, h));
+  const c = makeCanvas(Math.max(1, Math.round(w * scale)), Math.max(1, Math.round(h * scale)));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  const blob = await canvasToBlob(c, "image/jpeg", 0.95);
+  c.width = c.height = 0;
+  return blob;
 }
 
 async function cutout(blob, onProgress) {
-  const run = (model) => removeBackground(blob, {
-    model,
-    device: "cpu",
-    output: { format: "image/png" },
-    progress: onProgress
-  });
+  const run = (model) => removeBackground(blob, { model, device: "cpu", output: { format: "image/png" }, progress: onProgress });
   try {
     return await run(modelName);
   } catch (err) {
-    // If the small model is unavailable, fall back to the standard one.
-    if (modelName === "isnet_quint8" && /not found|resource/i.test(String(err && err.message))) {
-      modelName = "isnet_fp16";
+    if (modelName === "isnet_fp16") {
+      console.warn("Standard model failed, trying the smaller one", err);
+      modelName = "isnet_quint8";
       return await run(modelName);
     }
     throw err;
   }
 }
 
-async function onWhite(cutBlob, square) {
-  const url = URL.createObjectURL(cutBlob);
-  try {
-    const img = await loadImage(url);
-    const w = img.naturalWidth, h = img.naturalHeight;
-    const side = Math.max(w, h);
-    const cw = square ? side : w, ch = square ? side : h;
-    const c = document.createElement("canvas");
-    c.width = cw; c.height = ch;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, cw, ch);
-    ctx.drawImage(img, Math.round((cw - w) / 2), Math.round((ch - h) / 2), w, h);
-    const out = await canvasToBlob(c, "image/jpeg", 0.93);
-    c.width = c.height = 0;
-    return out;
-  } finally {
-    URL.revokeObjectURL(url);
+// Clean up the cutout and find the product.
+// 1. Faint, half-see-through leftovers of the old background are removed so the white stays clean;
+//    soft product edges are kept.
+// 2. The product box covers the rows and columns that hold a real amount of solid product,
+//    so a few stray specks cannot pull the framing off-center.
+function cleanAndFindBox(img) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const c = makeCanvas(w, h);
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, w, h);
+  const d = data.data;
+  const LOW = 48, HIGH = 208;
+  const rows = new Uint32Array(h), cols = new Uint32Array(w);
+  for (let y = 0, p = 3; y < h; y++) {
+    for (let x = 0; x < w; x++, p += 4) {
+      const a = d[p];
+      const na = a <= LOW ? 0 : a >= HIGH ? 255 : Math.round((a - LOW) * 255 / (HIGH - LOW));
+      d[p] = na;
+      if (na >= 128) { rows[y]++; cols[x]++; }
+    }
+  }
+  ctx.putImageData(data, 0, 0);
+  const minRow = Math.max(2, Math.round(w * 0.004)), minCol = Math.max(2, Math.round(h * 0.004));
+  let y0 = 0, y1 = h - 1, x0 = 0, x1 = w - 1;
+  while (y0 < h && rows[y0] < minRow) y0++;
+  while (y1 > y0 && rows[y1] < minRow) y1--;
+  while (x0 < w && cols[x0] < minCol) x0++;
+  while (x1 > x0 && cols[x1] < minCol) x1--;
+  let box;
+  if (y0 >= h || x0 >= w) box = { x: 0, y: 0, w, h };   // nothing found: use the whole picture
+  else {
+    const pad = Math.round(Math.max(x1 - x0, y1 - y0) * 0.01);   // keep soft edges just outside the solid area
+    const bx = Math.max(0, x0 - pad), by = Math.max(0, y0 - pad);
+    box = { x: bx, y: by, w: Math.min(w, x1 + pad + 1) - bx, h: Math.min(h, y1 + pad + 1) - by };
+  }
+  return { canvas: c, box };
+}
+
+// Draw the product centered on white, leaving `margin` percent of the width as space on every side.
+function drawFramed(ctx, W, H, src, sx, sy, sw, sh, margin) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  const pad = W * margin / 100;
+  const s = Math.min((W - 2 * pad) / sw, (H - 2 * pad) / sh);
+  const dw = sw * s, dh = sh * s;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(src, sx, sy, sw, sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
+}
+
+// ---------- previews ----------
+
+function buildVariants(item) {
+  const wrap = document.createElement("div");
+  wrap.className = "variants";
+  for (const v of ["square", "portrait"]) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "variant";
+    const c = makeCanvas(PREVIEW_W, Math.round(PREVIEW_W * RATIO[v]));
+    const lbl = document.createElement("div");
+    lbl.className = "lbl";
+    lbl.innerHTML = '<span></span><span class="tick">&#10003;</span>';
+    lbl.firstChild.textContent = LABEL[v];
+    card.append(c, lbl);
+    card.addEventListener("click", () => {
+      if (item.chosen.has(v)) item.chosen.delete(v); else item.chosen.add(v);
+      pendingShare = null;
+      paintChoice(item);
+      refreshButtons();
+    });
+    item.canvases[v] = c;
+    item.cards[v] = card;
+    wrap.append(card);
+  }
+  item.el.append(wrap);
+
+  const save = document.createElement("button");
+  save.className = "secondary";
+  save.textContent = "Save";
+  save.addEventListener("click", () => saveItems([item]));
+  item.saveBtn = save;
+  item.el.querySelector(".head").append(save);
+}
+
+function drawPreviews(item) {
+  const { margin } = settings();
+  for (const v of ["square", "portrait"]) {
+    const c = item.canvases[v];
+    drawFramed(c.getContext("2d"), c.width, c.height, item.small, 0, 0, item.small.width, item.small.height, margin);
   }
 }
 
-function showResult(item) {
-  item.resultUrl = URL.createObjectURL(item.result);
-  item.thumb.src = item.resultUrl;
-  item.stateEl.textContent = "Done";
-  item.stateEl.className = "state ok";
-  const a = document.createElement("a");
-  a.className = "btn secondary";
-  a.textContent = "Save";
-  a.href = item.resultUrl;
-  a.download = item.outName;
-  item.el.append(a);
-  item.linkEl = a;
+function paintChoice(item) {
+  for (const v of ["square", "portrait"]) if (item.cards[v]) item.cards[v].classList.toggle("on", item.chosen.has(v));
+  if (item.saveBtn) item.saveBtn.disabled = !item.chosen.size;
 }
+
+// ---------- processing ----------
 
 startBtn.addEventListener("click", async () => {
   if (running) return;
   running = true; refreshButtons();
-  const maxSide = parseInt($("size").value, 10);
-  const square = $("square").checked;
-  const todo = items.filter(i => !i.result);
+  const todo = items.filter(i => !i.cut);
   let done = 0;
   setBar(0);
 
   for (const item of todo) {
-    const n = done + 1;
     item.stateEl.className = "state";
     item.stateEl.textContent = "Working...";
-    setStatus("Photo " + n + " of " + todo.length + (done === 0 ? ". First photo is slowest while the AI model loads." : ""));
+    setStatus("Photo " + (done + 1) + " of " + todo.length + (done === 0 ? ". First photo is slowest while the AI model loads." : ""));
     try {
-      const input = await prepareInput(item.file, maxSide);
+      const input = await prepareInput(item.file);
       const cut = await cutout(input, (key, current, total) => {
-        if (total && /fetch/i.test(key)) {
-          const pct = Math.round((current / total) * 100);
-          item.stateEl.textContent = "Downloading AI model " + pct + "%";
-        }
+        if (total && /fetch/i.test(key)) item.stateEl.textContent = "Downloading AI model " + Math.round((current / total) * 100) + "%";
       });
       item.stateEl.textContent = "Finishing...";
-      item.result = await onWhite(cut, square);
-      showResult(item);
+      const { canvas: clean, box } = cleanAndFindBox(await loadImage(cut));
+      const ps = Math.min(1, 720 / Math.max(box.w, box.h));
+      const small = makeCanvas(Math.max(1, Math.round(box.w * ps)), Math.max(1, Math.round(box.h * ps)));
+      const sctx = small.getContext("2d");
+      sctx.imageSmoothingQuality = "high";
+      sctx.drawImage(clean, box.x, box.y, box.w, box.h, 0, 0, small.width, small.height);
+      const cleanBlob = await canvasToBlob(clean, "image/png");
+      clean.width = clean.height = 0;
+      Object.assign(item, { cut: cleanBlob, box, small });
+      buildVariants(item);
+      drawPreviews(item);
+      paintChoice(item);
+      item.stateEl.textContent = "Done. Tap the versions you want.";
+      item.stateEl.className = "state ok";
     } catch (err) {
       console.error(err);
       item.stateEl.className = "state err";
@@ -277,33 +415,92 @@ startBtn.addEventListener("click", async () => {
     }
     done++;
     setBar((done / todo.length) * 100);
-    await new Promise(r => setTimeout(r, 50)); // let the screen update and free memory
+    refreshButtons();
+    await new Promise(r => setTimeout(r, 50));   // let the screen update and free memory
   }
 
   running = false;
-  const ok = items.filter(i => i.result).length;
-  setStatus(ok + " of " + items.length + " finished. Tap Save all to put them in your Photos.");
+  const ok = items.filter(i => i.cut).length;
+  setStatus(ok + " of " + items.length + " finished. Pick square or portrait, then tap Save selected.");
   refreshButtons();
 });
 
-saveBtn.addEventListener("click", async () => {
-  const files = items.filter(i => i.result).map(i => new File([i.result], i.outName, { type: "image/jpeg" }));
-  if (!files.length) return;
-  try {
-    if (navigator.canShare && navigator.canShare({ files })) {
+// ---------- saving ----------
+
+async function renderFull(item, v) {
+  const { width, margin } = settings();
+  const key = v + "|" + width + "|" + margin;
+  if (item.cache.has(key)) return item.cache.get(key);
+  const img = await loadImage(item.cut);
+  const H = Math.round(width * RATIO[v]);
+  const c = makeCanvas(width, H);
+  drawFramed(c.getContext("2d"), width, H, img, item.box.x, item.box.y, item.box.w, item.box.h, margin);
+  const blob = await canvasToBlob(c, "image/jpeg", 0.92);
+  c.width = c.height = 0;
+  const file = new File([blob], item.base + "-" + v + ".jpg", { type: "image/jpeg" });
+  item.cache.clear();   // keep only the latest settings to save memory
+  item.cache.set(key, file);
+  return file;
+}
+
+async function shareOrDownload(files) {
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try {
       await navigator.share({ files });
-      return;
+      return "shared";
+    } catch (err) {
+      if (err && err.name === "AbortError") return "cancelled";
+      if (err && err.name === "NotAllowedError") return "needs-tap";
+      console.error(err);
     }
-  } catch (err) {
-    if (err && err.name === "AbortError") return; // person closed the share sheet
-    console.error(err);
   }
-  // Fallback: trigger each download one after another.
-  for (const i of items.filter(x => x.result)) {
-    i.linkEl && i.linkEl.click();
+  for (const f of files) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(f);
+    a.download = f.name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     await new Promise(r => setTimeout(r, 400));
   }
-});
+  return "downloaded";
+}
+
+async function saveItems(list) {
+  if (running) return;
+  // Phones only allow the share sheet right after a tap. If an earlier attempt was blocked, share the ready files now.
+  if (pendingShare && list === items) {
+    const files = pendingShare;
+    pendingShare = null; refreshButtons();
+    const r = await shareOrDownload(files);
+    setStatus(r === "cancelled" ? "Save cancelled." : "Saved " + files.length + " photo" + (files.length === 1 ? "" : "s") + ".");
+    return;
+  }
+  const jobs = [];
+  for (const i of list) if (i.cut) for (const v of ["square", "portrait"]) if (i.chosen.has(v)) jobs.push([i, v]);
+  if (!jobs.length) return;
+  running = true; refreshButtons();
+  const files = [];
+  try {
+    for (let n = 0; n < jobs.length; n++) {
+      setStatus("Preparing " + (n + 1) + " of " + jobs.length + "...");
+      files.push(await renderFull(jobs[n][0], jobs[n][1]));
+    }
+  } finally {
+    running = false;
+  }
+  const r = await shareOrDownload(files);
+  if (r === "needs-tap") {
+    pendingShare = files;
+    setStatus(files.length + " photos are ready. Tap the green Save button once more to put them in your Photos.");
+  } else {
+    setStatus(r === "cancelled" ? "Save cancelled." : "Saved " + files.length + " photo" + (files.length === 1 ? "" : "s") + ".");
+  }
+  refreshButtons();
+}
+
+saveBtn.addEventListener("click", () => saveItems(items));
 </script>
 </body>
 </html>
