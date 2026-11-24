@@ -56,6 +56,13 @@ results, known limitations, upgrade ideas and the version history. Keep both fil
   - Red-soft = Position; gold-soft = Touch up.
 - Big buttons (46–58 px); the main action sits in the bottom bar.
 
+## Pending work (as of 2026-11-23)
+- **Waiting on a batch of 30–50 store photos** (originals + Pixelcut versions) in `her-photos/`. README "Next step" has the checklist and the plan:
+  batch side-by-side page (original | ours | Pixelcut) → group the misses → fix one group at a time → re-run the whole set after every change → keep it as the permanent test set.
+- When the owner says the photos are in, start with the batch page, using the app's real pipeline (same `findProduct` code path), not a copy of the rules.
+- Be honest that a smaller free AI plus rules won't match Pixelcut on every photo; aim for rare misses fixable with Tap area.
+- Also suggest a contrasting backdrop for light items; it may solve more than any rule.
+
 ## Testing changes
 - Serve locally with the `.claude/launch.json` preview `app` (`python -m http.server 8765`). Test at the mobile viewport (375×812).
 - Batch test: build `File` objects in the page and set them on `#file` with a `DataTransfer`, then click `#start`.

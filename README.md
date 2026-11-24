@@ -171,9 +171,39 @@ library loads from jsDelivr, and its model files from staticimgly.com.
 
 ---
 
+## Next step: tune on a batch of the store's photos (agreed 2026-11-23)
+
+The owner agreed to collect a larger set of real photos so the clean-up rules can be finalized on her
+actual setup, instead of one complaint at a time.
+
+**What to collect:** 30–50 originals straight from the iPhone, with the Pixelcut version of each where possible, covering:
+- **Colors:** white and cream, light denim, black and dark, bright, patterns.
+- **Materials:** lace, sheer or mesh, fur and fuzzy knits, shiny or sequined, leather.
+- **Shapes:** flat on the table, on hangers, bags, shoes, jewelry, belts.
+- **Shot types:** full item, close-ups (labels, details), items touching the photo edge.
+- **Tricky extras:** price tags, several items in one photo, shadows, dim light.
+
+**Where:** the private `her-photos/` folder (gitignored, never published). Matching names help, for
+example `dress1.jpg` + `dress1-pixelcut.jpg`.
+
+**Plan once the photos arrive:**
+1. Turn `her-photos/compare.html` into a batch page that runs the whole folder through the app's real pipeline and shows original | ours | Pixelcut side by side.
+2. Sort the misses into groups (white on white, close-ups, shadows, …) and fix one group at a time.
+3. After every change, re-run the whole set so a fix for one group never breaks another.
+4. Keep the set as a permanent test set for all future updates.
+
+**Expectations:** Pixelcut uses a large AI trained on millions of photos, while our app is a smaller
+free AI plus rules. The goal is that misses are rare and fixable with one Tap area tap, not zero.
+
+**Cheap tip to try in parallel:** the backdrop matters more than any rule. The white-painted table is
+hardest for light items (denim, white, cream). Try a plain mid-gray or colored sheet for light items,
+and keep the white table for dark ones.
+
+---
+
 ## Ideas for later upgrades
 
-- Tune the clean-up on the store's own photos (ask for examples that showed streaks).
+- Finalize the clean-up rules on the store's photo batch (see "Next step" above).
 - A "smart" Restore/Erase brush that snaps to edges.
 - More shapes (for example, 9:16 stories, or whatever size the online store recommends).
 - A background color other than white, and straightening a tilted product.
