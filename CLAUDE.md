@@ -28,6 +28,9 @@ and the upgrade ideas list.
   Real photos can be fetched in the page from `images.unsplash.com/photo-<id>?w=1800&fm=jpg` (free license, CORS OK).
   Don't commit test photos.
 - The first run downloads about 90 MB. After that, about 13 s per photo on desktop.
+- `sw.js` caches the AI files (staticimgly.com, cdn.jsdelivr.net). If the imgly version in the import changes, bump `CACHE` in sw.js. Test speed after a reload, not just on first load.
+- Clean-up changes: always re-test a white garment on a white background (Unsplash photo-1578747522731-9e5a179b02f7) for holes, plus a photo with a spare hanger (photo-1519554318711-aaf73ece6ff9).
+- Saving is tracked per shape (`item.savedV`). Anything that changes how a shape looks must clear it from `savedV`.
 - The AI runs on the graphics chip (`device: "gpu"`) when available, with CPU fallback; `?cpu` in the URL forces the CPU. Check both paths after AI changes.
 - `window.close()` in "I'm finished" really closes script-opened test tabs; stub it when testing that flow.
 - Look and feel: Style Encore branding. The logo (`icons/logo.png`) sits in a white header with a red and gold stripe. Brand red `#C62034` (`--brand`), gold `#D2B887` (`--gold`, darker `--gold-dark` for text), warm cream background. Green = save/selected, coral = start over/erase, red-soft = Position, gold-soft = Touch up. Keep buttons big (46–58 px), labels on one line at 375 px, and the main action in the bottom bar.

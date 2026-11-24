@@ -154,6 +154,18 @@
   .variant.on { border-color: var(--save); background: var(--save-soft); }
   .variant.on .tick { background: var(--save); border-color: var(--save); color: #fff; }
 
+  .badge { display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .badge[hidden] { display: none; }
+  .badge.saved { background: var(--save-soft); color: var(--save); }
+  .badge.unsaved { background: var(--coral-soft); color: var(--coral); }
+  .variant.unsaved .lbl span:first-child::after { content: " \00b7  not saved"; color: var(--coral); font-weight: 700; }
+
+  .leave .warn { background: #fff; }
+  .leave-list { text-align: left; background: rgba(255,255,255,.16); border-radius: 16px; padding: 12px 14px 12px 34px; margin: 4px 0 22px; font-size: 15.5px; }
+  .leave-list li { margin: 3px 0; word-break: break-word; }
+  .done .leave-btns { display: grid; gap: 10px; }
+  .done .leave-btns .save { background: var(--save); color: #fff; }
+  .done .leave-btns .ghost { background: rgba(255,255,255,.16); color: #fff; box-shadow: none; }
   .endbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .endbtns button { white-space: nowrap; padding-left: 10px; padding-right: 10px; gap: 8px; font-size: 17px; }
   .note { font-size: 13px; color: var(--muted); margin: 6px 2px 18px; }
@@ -303,6 +315,23 @@
   </div>
 </div>
 
+<div class="done leave" id="leave" hidden>
+  <div class="done-in">
+    <div class="check warn"><svg viewBox="0 0 24 24" fill="none" stroke="#d9573a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v6"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg></div>
+    <h2 id="leaveTitle">Photos not saved yet</h2>
+    <p>These have changes that are not in your Photos yet:</p>
+    <ul class="leave-list" id="leaveList"></ul>
+    <div class="leave-btns">
+      <button id="leaveSave" class="big save">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        <span>Save them now</span>
+      </button>
+      <button id="leaveSkip" class="big ghost">Leave without saving</button>
+      <button id="leaveBack" class="big ghost">Go back</button>
+    </div>
+  </div>
+</div>
+
 <div class="editor" id="editor" hidden>
   <div class="ed-top">
     <button id="edCancel" class="secondary">Cancel</button>
@@ -368,6 +397,7 @@ const PROCESS_SIDE = 2048;   // photos are shrunk to this before the AI runs (ke
 const PREVIEW_W = 360;       // preview canvas width in pixels
 const RATIO = { square: 1, portrait: 1.25 };   // height / width
 const LABEL = { square: "Square 1:1", portrait: "Portrait 4:5" };
+const SHORT = { square: "Square", portrait: "Portrait" };
 const VARIANTS = ["square", "portrait"];
 const ICON_TOUCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4-12 12H6v-4L18 2Z"/><path d="M3 22h18"/></svg>';
 const ICON_MOVE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><path d="m9 5 3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg>';
@@ -385,6 +415,9 @@ let defaultPick = "square";
 let pendingShare = null;   // files ready to share when the browser needs a fresh tap
 let preloading = null;
 
+// Keep the AI files on the phone after the first download (see sw.js).
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(err => console.warn("Could not keep AI files on the phone", err));
+
 const settings = () => ({ width: parseInt(sizeEl.value, 10), margin: parseInt(marginEl.value, 10), shadow: shadowEl.checked });
 const aiConfig = () => ({ model: modelName, device, output: { format: "image/png" } });
 
@@ -399,7 +432,21 @@ const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
 // Start downloading the AI while photos are being picked, so the first photo does not wait for it.
 function warmUp() {
   if (preloading) return;
-  preloading = preload(aiConfig()).catch(err => console.warn("Preload failed; it will load on first use", err));
+  preloading = preload({ ...aiConfig(), progress: onAiProgress }).catch(err => console.warn("Preload failed; it will load on first use", err));
+}
+
+// Show how far the AI download has got, so a slow connection does not look like the app froze.
+const aiFiles = new Map();   // file -> [bytes so far, total bytes]
+let workingItem = null;
+function onAiProgress(key, current, total) {
+  if (!total || !/fetch/i.test(key)) return;
+  aiFiles.set(key, [current, total]);
+  let got = 0, all = 0;
+  for (const [c, t] of aiFiles.values()) { got += c; all += t; }
+  if (got >= all) return;
+  const text = "Getting the AI ready: " + Math.round(got / all * 100) + "% downloaded";
+  if (running) setStatus(text);
+  if (workingItem) workingItem.stateEl.textContent = text;
 }
 
 function addFiles(fileList) {
@@ -426,7 +473,7 @@ function addFiles(fileList) {
       canvases: {}, cards: {},
       chosen: pickSet(defaultPick),
       pos: { square: defaultPos(), portrait: defaultPos() },   // manual position per shape
-      saved: false,
+      savedV: new Set(),   // shapes saved since they last changed
       cache: new Map()    // finished full-size JPEG per shape, for the latest settings
     });
   }
@@ -451,9 +498,12 @@ function refreshButtons() {
   if (!running) startBtn.querySelector("span").textContent = "Remove backgrounds" + (pendingN > 1 ? " (" + pendingN + ")" : "");
 
   saveBtn.hidden = !anyDone || (running && !pendingShare && pendingN > 0);
-  saveBtn.disabled = running || !n;
+  const unsaved = unsavedJobs().length, anySaved = items.some(i => i.savedV.size);
+  saveBtn.disabled = running || (!unsaved && !pendingShare);
   saveBtn.classList.toggle("ready", !!pendingShare);
-  saveBtn.querySelector("span").textContent = pendingShare ? "Tap to save " + pendingShare.length : n ? "Save selected (" + n + ")" : "Save selected";
+  saveBtn.querySelector("span").textContent = pendingShare ? "Tap to save " + pendingShare.length
+    : unsaved ? (anySaved ? "Save changes (" : "Save selected (") + unsaved + ")"
+    : n ? "All saved \u2713" : "Save selected";
 
   clearBtn.disabled = running || !items.length;
   finishBtn.disabled = running;
@@ -461,7 +511,18 @@ function refreshButtons() {
     if (i.editBtn) i.editBtn.disabled = running;
     if (i.moveBtn) i.moveBtn.disabled = running;
     if (i.saveBtn) i.saveBtn.disabled = running || !i.chosen.size;
+    paintSaved(i);
   }
+}
+
+// Show on each photo whether its chosen shapes are saved.
+function paintSaved(i) {
+  if (!i.badge) return;
+  const un = VARIANTS.filter(v => i.chosen.has(v) && !i.savedV.has(v));
+  i.badge.hidden = !i.cut || !i.chosen.size;
+  i.badge.className = "badge " + (un.length ? "unsaved" : "saved");
+  i.badge.textContent = un.length ? "Not saved: " + un.map(v => SHORT[v]).join(" + ") : "Saved \u2713";
+  for (const v of VARIANTS) if (i.cards[v]) i.cards[v].classList.toggle("unsaved", i.chosen.has(v) && !i.savedV.has(v));
 }
 
 fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInput.value = ""; });
@@ -469,27 +530,28 @@ fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInpu
 ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
 
-const unsavedCount = () => items.filter(i => i.cut && i.chosen.size && !i.saved).length;
+// Which photo shapes still need saving: chosen, and new or changed since they were last saved.
+function unsavedJobs() {
+  const jobs = [];
+  for (const i of items) if (i.cut) for (const v of VARIANTS) if (i.chosen.has(v) && !i.savedV.has(v)) jobs.push([i, v]);
+  return jobs;
+}
+const jobsFor = (i) => VARIANTS.filter(v => i.cut && i.chosen.has(v)).map(v => [i, v]);
 
 function clearAll() {
   for (const i of items) URL.revokeObjectURL(i.thumbUrl);
-  items = []; pendingShare = null; listEl.innerHTML = ""; setBar(0); setStatus(""); refreshButtons();
+  items = []; pendingShare = null; pendingJobs = null; listEl.innerHTML = ""; setBar(0); setStatus(""); refreshButtons();
 }
 
-clearBtn.addEventListener("click", () => {
-  const u = unsavedCount();
-  if (u && !confirm(plural(u, "photo") + " not saved yet. Start over anyway?")) return;
+function startOver() {
   clearAll();
   window.scrollTo({ top: 0, behavior: "smooth" });
-});
+}
 
 // A web page cannot send the phone to its Home Screen, so "I'm finished" clears everything
 // and shows how to leave.
-finishBtn.addEventListener("click", () => {
-  if (running) return;
-  const u = unsavedCount();
-  if (u && !confirm(plural(u, "photo") + " not saved yet. Finish anyway?")) return;
-  const hadSaved = items.some(i => i.saved);
+function finishUp() {
+  const hadSaved = items.some(i => i.savedV.size);
   clearAll();
   const standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
   $("doneMsg").textContent = hadSaved ? "Your saved photos are in the Photos app." : "Everything has been cleared.";
@@ -499,7 +561,49 @@ finishBtn.addEventListener("click", () => {
   $("done").hidden = false;
   document.body.classList.add("done-open");
   try { window.close(); } catch { /* only works for windows opened by a script */ }
+}
+
+// Before clearing, offer to save whatever is not saved yet, naming each photo.
+let leaveAction = null;
+function confirmLeave(action) {
+  if (running) return;
+  const jobs = unsavedJobs();
+  if (!jobs.length) { action(); return; }
+  leaveAction = action;
+  const byPhoto = new Map();
+  for (const [i, v] of jobs) { if (!byPhoto.has(i)) byPhoto.set(i, []); byPhoto.get(i).push(SHORT[v]); }
+  $("leaveTitle").textContent = plural(jobs.length, "photo") + " not saved yet";
+  const ul = $("leaveList");
+  ul.innerHTML = "";
+  for (const [i, vs] of byPhoto) {
+    const li = document.createElement("li");
+    li.textContent = i.file.name + " (" + vs.join(" + ") + ")";
+    ul.append(li);
+  }
+  $("leaveSave").querySelector("span").textContent = "Save " + (jobs.length === 1 ? "it" : "them") + " now";
+  $("leave").hidden = false;
+  document.body.classList.add("done-open");
+}
+function closeLeave() {
+  $("leave").hidden = true;
+  document.body.classList.remove("done-open");
+}
+function runLeaveAction() {
+  const a = leaveAction;
+  leaveAction = null;
+  closeLeave();
+  if (a) a();
+}
+$("leaveSave").addEventListener("click", async () => {
+  const r = await saveJobs(pendingShare ? null : unsavedJobs());
+  if (r === "needs-tap") { $("leaveSave").querySelector("span").textContent = "Tap again to save"; return; }
+  if (r === "shared" || r === "downloaded") runLeaveAction();   // cancelled: stay so she can try again
 });
+$("leaveSkip").addEventListener("click", runLeaveAction);
+$("leaveBack").addEventListener("click", () => { leaveAction = null; closeLeave(); });
+
+clearBtn.addEventListener("click", () => confirmLeave(startOver));
+finishBtn.addEventListener("click", () => confirmLeave(finishUp));
 $("again").addEventListener("click", () => {
   $("done").hidden = true;
   document.body.classList.remove("done-open");
@@ -518,12 +622,19 @@ pickEl.addEventListener("click", (e) => {
 
 function redrawAllPreviews() {
   pendingShare = null;
-  for (const i of items) if (i.small) { drawPreviews(i); i.saved = false; }
+  for (const i of items) if (i.small) { drawPreviews(i); i.savedV.clear(); }
   refreshButtons();
 }
-marginEl.addEventListener("input", () => { marginOut.textContent = marginEl.value + "%"; redrawAllPreviews(); });
+let lastMargin = parseInt(marginEl.value, 10);
+marginEl.addEventListener("input", () => {
+  const m = parseInt(marginEl.value, 10);
+  for (const i of items) if (i.box) keepPlace(i, i.box, i.box, lastMargin / 100, m / 100);   // placed products stay put
+  lastMargin = m;
+  marginOut.textContent = m + "%";
+  redrawAllPreviews();
+});
 shadowEl.addEventListener("change", redrawAllPreviews);
-sizeEl.addEventListener("change", () => { pendingShare = null; for (const i of items) i.saved = false; refreshButtons(); });
+sizeEl.addEventListener("change", () => { pendingShare = null; for (const i of items) i.savedV.clear(); refreshButtons(); });
 
 // ---------- image helpers ----------
 
@@ -581,7 +692,10 @@ async function cutout(blob, onProgress) {
 }
 
 // Find the product, optionally cleaning up the cutout first.
-// Cleaning removes faint, half-see-through leftovers of the old background; soft product edges are kept.
+// Cleaning: (1) faint, half-see-through haze left from the old background is removed while soft
+// product edges are kept; (2) any separate patch that is not attached to the product and is much
+// smaller than it (streaks, smudges, stray marks, a spare hanger) is wiped. Restore can bring a
+// wiped piece back if it was really part of the product.
 // The product box covers the rows and columns holding a real amount of solid product,
 // so a few stray specks cannot pull the framing off-center.
 function findProduct(src, clean) {
@@ -591,16 +705,20 @@ function findProduct(src, clean) {
   ctx.drawImage(src, 0, 0, w, h);
   const data = ctx.getImageData(0, 0, w, h);
   const d = data.data;
-  const LOW = 48, HIGH = 208;
+  if (clean) {
+    const LOW = 64, HIGH = 208;
+    for (let p = 3; p < d.length; p += 4) {
+      const a = d[p];
+      d[p] = a <= LOW ? 0 : a >= HIGH ? 255 : Math.round((a - LOW) * 255 / (HIGH - LOW));
+    }
+    keepFaintOnlyNearSolid(d, w, h, Math.max(4, Math.round(Math.max(w, h) * 0.006)));
+    removeStrays(d, w, h);
+    ctx.putImageData(data, 0, 0);
+  }
   const rows = new Uint32Array(h), cols = new Uint32Array(w);
   for (let y = 0, p = 3; y < h; y++) {
-    for (let x = 0; x < w; x++, p += 4) {
-      let a = d[p];
-      if (clean) { a = a <= LOW ? 0 : a >= HIGH ? 255 : Math.round((a - LOW) * 255 / (HIGH - LOW)); d[p] = a; }
-      if (a >= 128) { rows[y]++; cols[x]++; }
-    }
+    for (let x = 0; x < w; x++, p += 4) if (d[p] >= 128) { rows[y]++; cols[x]++; }
   }
-  if (clean) ctx.putImageData(data, 0, 0);
   const minRow = Math.max(2, Math.round(w * 0.004)), minCol = Math.max(2, Math.round(h * 0.004));
   let y0 = 0, y1 = h - 1, x0 = 0, x1 = w - 1;
   while (y0 < h && rows[y0] < minRow) y0++;
@@ -615,6 +733,66 @@ function findProduct(src, clean) {
     box = { x: bx, y: by, w: Math.min(w, x1 + pad + 1) - bx, h: Math.min(h, y1 + pad + 1) - by };
   }
   return { canvas: c, box };
+}
+
+// Faint pixels (less than half solid) are real soft edges only when they sit right next to the product.
+// ("Solid" here means at least half solid: white clothes on a white background are often only 60-75% solid.)
+// Faint smudges and streaks anywhere else, even when touching the product, are wiped.
+function keepFaintOnlyNearSolid(d, w, h, r) {
+  const n = w * h, solid = new Uint8Array(n), across = new Uint8Array(n);
+  for (let i = 0; i < n; i++) solid[i] = d[i * 4 + 3] >= 128 ? 1 : 0;
+  // "is there solid product within r pixels?" in two quick passes: across, then down
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    let count = 0;
+    for (let x = 0; x < Math.min(r, w); x++) count += solid[row + x];
+    for (let x = 0; x < w; x++) {
+      if (x + r < w) count += solid[row + x + r];
+      if (x - r - 1 >= 0) count -= solid[row + x - r - 1];
+      across[row + x] = count > 0 ? 1 : 0;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let count = 0;
+    for (let y = 0; y < Math.min(r, h); y++) count += across[y * w + x];
+    for (let y = 0; y < h; y++) {
+      if (y + r < h) count += across[(y + r) * w + x];
+      if (y - r - 1 >= 0) count -= across[(y - r - 1) * w + x];
+      const p = (y * w + x) * 4 + 3;
+      if (count === 0 && d[p] < 128) d[p] = 0;
+    }
+  }
+}
+
+// Wipe separate patches that are less than 5% the size of the biggest patch (the product).
+// Pixels touching each other (including diagonally) count as one patch.
+function removeStrays(d, w, h) {
+  const n = w * h, label = new Int32Array(n), stack = new Int32Array(n);
+  const areas = [0];
+  let next = 1;
+  for (let i = 0; i < n; i++) {
+    if (label[i] || d[i * 4 + 3] < 24) continue;
+    let top = 0, area = 0;
+    stack[top++] = i; label[i] = next;
+    while (top) {
+      const j = stack[--top];
+      area++;
+      const x = j % w, y = (j - x) / w;
+      for (let yy = Math.max(0, y - 1); yy <= Math.min(h - 1, y + 1); yy++) {
+        for (let xx = Math.max(0, x - 1); xx <= Math.min(w - 1, x + 1); xx++) {
+          const k = yy * w + xx;
+          if (!label[k] && d[k * 4 + 3] >= 24) { label[k] = next; stack[top++] = k; }
+        }
+      }
+    }
+    areas.push(area);
+    next++;
+  }
+  if (next <= 2) return;   // only one patch: nothing to remove
+  let max = 0;
+  for (const a of areas) if (a > max) max = a;
+  const keep = max * 0.05;
+  for (let i = 0; i < n; i++) { const l = label[i]; if (l && areas[l] < keep) d[i * 4 + 3] = 0; }
 }
 
 // Draw the product on white. Automatically it is centered, leaving `margin` percent of the width as space
@@ -662,7 +840,7 @@ function buildVariants(item) {
     lbl.firstChild.textContent = LABEL[v];
     card.append(c, lbl);
     card.addEventListener("click", () => {
-      if (item.chosen.has(v)) item.chosen.delete(v); else { item.chosen.add(v); item.saved = false; }
+      if (item.chosen.has(v)) item.chosen.delete(v); else item.chosen.add(v);
       pendingShare = null;
       paintChoice(item);
       refreshButtons();
@@ -686,11 +864,14 @@ function buildVariants(item) {
   const save = document.createElement("button");
   save.className = "save-one";
   save.innerHTML = ICON_SAVE + "<span>Save</span>";
-  save.addEventListener("click", () => saveItems([item]));
+  save.addEventListener("click", () => saveJobs(jobsFor(item)));
   item.editBtn = edit;
   item.moveBtn = move;
   item.saveBtn = save;
   btns.append(edit, move, save);
+  const badge = document.createElement("div");
+  item.el.querySelector(".meta").append(badge);
+  item.badge = badge;
   item.el.append(btns);
 }
 
@@ -706,8 +887,25 @@ function paintChoice(item) {
   for (const v of VARIANTS) if (item.cards[v]) item.cards[v].classList.toggle("on", item.chosen.has(v));
 }
 
+// The automatic framing depends on the product box and the margin. When either changes, recompute a
+// manually placed product's position so it stays exactly where it was put (and the same size).
+// Photos that were never positioned simply follow the automatic framing.
+function keepPlace(item, ob, nb, om, nm) {
+  for (const v of VARIANTS) {
+    const p = item.pos[v];
+    if (posKey(p) === posKey(defaultPos())) continue;
+    const R = RATIO[v];   // frame is 1 wide and R tall
+    const fit = (b, m) => Math.min((1 - 2 * m) / b.w, (R - 2 * m) / b.h);
+    const sc = fit(ob, om) * p.k;
+    const dx = (1 - ob.w * sc) / 2 + p.x, dy = (R - ob.h * sc) / 2 + p.y * R;
+    const ndx = dx + (nb.x - ob.x) * sc, ndy = dy + (nb.y - ob.y) * sc;
+    item.pos[v] = { k: sc / fit(nb, nm), x: ndx - (1 - nb.w * sc) / 2, y: (ndy - (R - nb.h * sc) / 2) / R };
+  }
+}
+
 // Store a new cutout for a photo (from the AI or from Touch up) and refresh its previews.
 async function setCutout(item, canvas, box) {
+  if (item.box) { const m = settings().margin / 100; keepPlace(item, item.box, box, m, m); }
   const ps = Math.min(1, 720 / Math.max(box.w, box.h));
   const small = makeCanvas(Math.max(1, Math.round(box.w * ps)), Math.max(1, Math.round(box.h * ps)));
   const sctx = small.getContext("2d");
@@ -716,7 +914,7 @@ async function setCutout(item, canvas, box) {
   item.cut = await canvasToBlob(canvas, "image/png");
   item.box = box;
   item.small = small;
-  item.saved = false;
+  item.savedV.clear();
   item.cache.clear();
   if (!item.canvases.square) buildVariants(item);
   drawPreviews(item);
@@ -742,9 +940,9 @@ startBtn.addEventListener("click", async () => {
     item.el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     try {
       const input = await prepareInput(item.file);
-      const cut = await cutout(input, (key, current, total) => {
-        if (total && /fetch/i.test(key)) item.stateEl.textContent = "Downloading AI " + Math.round((current / total) * 100) + "%";
-      });
+      workingItem = item;
+      const cut = await cutout(input, onAiProgress);
+      workingItem = null;
       item.stateEl.textContent = "Finishing...";
       const { canvas, box } = findProduct(await loadImage(cut), true);
       item.input = input;
@@ -755,6 +953,7 @@ startBtn.addEventListener("click", async () => {
       item.stateEl.className = "state ok";
     } catch (err) {
       console.error(err);
+      workingItem = null;
       item.stateEl.className = "state err";
       item.stateEl.textContent = "Failed: " + (err && err.message ? err.message : "unknown error");
     }
@@ -813,27 +1012,31 @@ async function shareOrDownload(files) {
   return "downloaded";
 }
 
-function afterSave(r, files, list) {
+function afterSave(r, files, jobs) {
   if (r === "cancelled") { setStatus("Save cancelled."); return; }
-  for (const i of list) if (i.cut && i.chosen.size) i.saved = true;
+  for (const [i, v] of jobs) i.savedV.add(v);
   setStatus("Saved " + plural(files.length, "photo") + ". When you're done, tap I'm finished.");
 }
 
-let pendingList = null;
-async function saveItems(list) {
-  if (running) return;
-  // Phones only allow the share sheet right after a tap. If an earlier attempt was blocked, share the ready files now.
-  if (pendingShare && list === items) {
-    const files = pendingShare, from = pendingList || items;
-    pendingShare = null; pendingList = null; refreshButtons();
-    afterSave(await shareOrDownload(files), files, from);
+// Save [photo, shape] jobs to Photos. Returns "shared", "downloaded", "cancelled", "needs-tap" or null.
+// Passing null shares files made ready earlier that needed a fresh tap
+// (phones only allow the share sheet right after a tap).
+let pendingJobs = null;
+async function saveJobs(jobs) {
+  if (running) return null;
+  if (!jobs) {
+    if (!pendingShare) return null;
+    const files = pendingShare;
+    jobs = pendingJobs;
+    pendingShare = null; pendingJobs = null; refreshButtons();
+    const r = await shareOrDownload(files);
+    if (r === "needs-tap") { pendingShare = files; pendingJobs = jobs; }
+    else afterSave(r, files, jobs);
     refreshButtons();
-    return;
+    return r;
   }
-  const jobs = [];
-  for (const i of list) if (i.cut) for (const v of VARIANTS) if (i.chosen.has(v)) jobs.push([i, v]);
-  if (!jobs.length) return;
-  running = true; refreshButtons();
+  if (!jobs.length) return null;
+  running = true; pendingShare = null; refreshButtons();
   const files = [];
   try {
     for (let n = 0; n < jobs.length; n++) {
@@ -845,15 +1048,17 @@ async function saveItems(list) {
   }
   const r = await shareOrDownload(files);
   if (r === "needs-tap") {
-    pendingShare = files; pendingList = list;
+    pendingShare = files; pendingJobs = jobs;
     setStatus(plural(files.length, "photo") + " ready. Tap the green Save button once more to put them in your Photos.");
   } else {
-    afterSave(r, files, list);
+    afterSave(r, files, jobs);
   }
   refreshButtons();
+  return r;
 }
 
-saveBtn.addEventListener("click", () => saveItems(items));
+// The bottom button saves only what is new or changed, so nothing gets saved twice.
+saveBtn.addEventListener("click", () => saveJobs(pendingShare ? null : unsavedJobs()));
 
 // ---------- touch-up editor ----------
 // The editor keeps a "mask": an image whose see-through-ness says which parts of the original photo
@@ -1270,7 +1475,7 @@ $("adDone").addEventListener("click", () => {
   item.pos = ad.pos;
   if (changed.length) {
     for (const v of changed) item.chosen.add(v);   // a shape that was positioned is clearly wanted
-    item.saved = false;
+    for (const v of changed) item.savedV.delete(v);
     pendingShare = null;
     drawPreviews(item);
     paintChoice(item);

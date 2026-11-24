@@ -27,14 +27,17 @@ photo → **Touch up** any bad edges → **Save selected** → Save Images to Ph
 |---|---|
 | Batch processing | Pick any number of photos at once; they run one after another with a progress bar. |
 | AI background removal | Runs on the device in the browser (`@imgly/background-removal` 1.7.0, `isnet_fp16` model). |
-| Clean white background | Faint leftovers of the old background are wiped so the white stays pure. |
+| Clean white background | Automatic clean-up of the AI result: faint haze removed; faint pixels kept only right next to the product (soft edges); separate patches smaller than 5% of the product (streaks, smudges, spare hangers) wiped. Tuned so white clothes on white backgrounds stay whole. |
+| Saved / Not saved | Each photo shows a badge ("Saved ✓" or "Not saved: Portrait"), tracked per shape. The bottom button saves only new or changed shapes ("Save changes (2)"), so nothing is saved twice. |
+| Leaving safely | Start over / I'm finished list exactly which photos aren't saved, with **Save them now** (saves just those, then continues), Leave without saving, or Go back. Web pages can't save to Photos silently: iOS always needs the Save Images tap. |
+| AI kept on the phone | `sw.js` (service worker) stores the AI files after the first download. Measured: 8 photos in 8 s right after a reload, vs 78–101 s when re-downloading. Download progress is shown ("Getting the AI ready: 45% downloaded"). |
 | Product framing | Crops tight to the product and centers it on white, like Pixelcut. |
 | Space around product | Slider, 0–25% of the image width (default 8%). |
 | Square and portrait | Every photo gets both a 1:1 and a 4:5 preview. Tap to choose which to keep. |
 | Keep: Square / Portrait / Both | Sets the choice for every photo at once; individual photos can still be changed. |
 | Output size | Instagram (1080 wide), Website (2000 wide, default), Large (2400 wide). Portrait height = width × 1.25. |
 | Soft shadow | Optional switch: a soft oval studio shadow under the product. |
-| Position (per photo) | Like Pixelcut: drag the product with one finger to move it, pinch to resize. Snaps to center with pink guide lines. Buttons: Smaller, Bigger, Center, Reset. Square and portrait are positioned separately; positioning a shape also selects it. |
+| Position (per photo) | Like Pixelcut: drag the product with one finger to move it, pinch to resize. Snaps to center with guide lines. Buttons: Smaller, Bigger, Center, Reset. Square and portrait are positioned separately; positioning a shape also selects it. A placed product stays exactly where it was put even after a Touch up or a margin change (`keepPlace`). |
 | Speed | Uses the phone's graphics chip (WebGPU) when available: about 1.5 s per photo vs about 13 s on the regular processor (desktop test). Falls back automatically. The AI starts downloading as soon as photos are picked. |
 | Home Screen app | Manifest + icon (`manifest.webmanifest`, `icons/`). Added to the Home Screen, it opens full screen like an app named "BG Maker", with the Style Encore logo as its icon. |
 | Branding | Style Encore logo in the header; the app uses the logo's red (#C62034) and gold (#D2B887) on a warm cream background. |
@@ -55,7 +58,7 @@ Processing pipeline for each photo:
 1. **`prepareInput`**: shrinks the photo so its long side is at most 2048 px (`PROCESS_SIDE`) to keep iPhones from running out of memory.
 2. **`cutout`**: runs the AI and gets a PNG with a transparent background. It uses `isnet_fp16` on `device: "gpu"` when `navigator.gpu` exists; if that fails it switches to `cpu`, and only then falls back to `isnet_quint8`. Add `?cpu` to the URL to force the processor (for troubleshooting). `preload()` is called when photos are added.
 3. **`findProduct(img, clean=true)`**:
-   - **Clean:** alpha ≤ 48 → 0, alpha ≥ 208 → 255, linear in between. This wipes haze but keeps soft edges.
+   - **Clean:** alpha ≤ 64 → 0, alpha ≥ 208 → 255, linear in between. Then `keepFaintOnlyNearSolid` wipes pixels under half solid that are more than 0.6% of the image away from at-least-half-solid product. Then `removeStrays` wipes separate patches under 5% of the largest. Measured: white-on-white garments are only 60–75% solid, so a stricter "solid" line punched holes in them.
    - **Box:** the product box covers rows and columns with a real amount of solid pixels (≥ 0.4% of the width/height having alpha ≥ 128), plus 1% padding, so stray specks don't pull the framing off-center.
 4. **`setCutout`**: stores the cutout PNG and the box, builds a small (720 px) crop for fast previews, and draws the previews.
 5. **`drawFramed`**: draws the product box centered on white with the chosen margin (and the shadow if on), then applies the photo's manual position `item.pos[shape] = { k, x, y }` (k = size relative to the auto-fit; x/y = shift as a fraction of frame width/height). It's used for previews, the Position screen and the full-size output, so all three always match.
