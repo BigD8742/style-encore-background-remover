@@ -36,7 +36,8 @@ photo → **Touch up** any bad edges → **Save selected** → Save Images to Ph
 | Soft shadow | Optional switch: a soft oval studio shadow under the product. |
 | Position (per photo) | Like Pixelcut: drag the product with one finger to move it, pinch to resize. Snaps to center with pink guide lines. Buttons: Smaller, Bigger, Center, Reset. Square and portrait are positioned separately; positioning a shape also selects it. |
 | Speed | Uses the phone's graphics chip (WebGPU) when available: about 1.5 s per photo vs about 13 s on the regular processor (desktop test). Falls back automatically. The AI starts downloading as soon as photos are picked. |
-| Home Screen app | Manifest + icon (`manifest.webmanifest`, `icons/`). Added to the Home Screen, it opens full screen like an app named "BG Maker". |
+| Home Screen app | Manifest + icon (`manifest.webmanifest`, `icons/`). Added to the Home Screen, it opens full screen like an app named "BG Maker", with the Style Encore logo as its icon. |
+| Branding | Style Encore logo in the header; the app uses the logo's red (#C62034) and gold (#D2B887) on a warm cream background. |
 | Start over / I'm finished | Start over clears the batch (warns if photos aren't saved). I'm finished clears everything and shows an "All done" screen explaining how to leave (swipe up). Web pages can't send an iPhone to its Home Screen themselves. |
 | Touch up editor | Full screen. **Erase** removes leftover background; **Restore** paints back parts the AI cut off (the original shows faintly as a guide). Brush size, pinch-zoom (or mouse wheel), −/+/Fit buttons, Undo/Redo (15 steps), Reset to the AI result. |
 | Saving | iPhone share sheet (Save Images → Photos). On computers it downloads the files. |

@@ -30,6 +30,7 @@ and the upgrade ideas list.
 - The first run downloads about 90 MB. After that, about 13 s per photo on desktop.
 - The AI runs on the graphics chip (`device: "gpu"`) when available, with CPU fallback; `?cpu` in the URL forces the CPU. Check both paths after AI changes.
 - `window.close()` in "I'm finished" really closes script-opened test tabs; stub it when testing that flow.
-- Look and feel: purple/berry brand gradient (`--brand`, `--brand2`), green = save/selected, coral = start over/erase, blue = Position. Keep buttons big (48–58 px) and the main action in the bottom bar.
+- Look and feel: Style Encore branding. The logo (`icons/logo.png`) sits in a white header with a red and gold stripe. Brand red `#C62034` (`--brand`), gold `#D2B887` (`--gold`, darker `--gold-dark` for text), warm cream background. Green = save/selected, coral = start over/erase, red-soft = Position, gold-soft = Touch up. Keep buttons big (46–58 px), labels on one line at 375 px, and the main action in the bottom bar.
+- Icons are rebuilt from the logo with `python tools/make_icons.py <logo on white>` (`icons/logo.png` works as the source).
 - The Touch up and Position editors use pointer events. Synthetic touches need distinct `pointerId`s; `setPointerCapture` is wrapped in try/catch.
 - Check memory-heavy changes with iPhone limits in mind (photos are processed at a max of 2048 px; full-size renders only on save).
