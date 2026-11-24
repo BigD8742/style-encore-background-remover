@@ -207,6 +207,8 @@
   .ad-tools button { padding: 9px 6px; font-size: 15px; min-height: 46px; }
   .pos-btn { background: var(--brand-soft); color: var(--brand); }
   .seg.big2 button { padding: 10px 20px; font-size: 16px; }
+  .tapbtn { background: var(--gold-soft); color: var(--gold-dark); padding: 9px 14px; min-height: 44px; font-size: 15px; white-space: nowrap; }
+  .tapbtn.on { background: var(--gold-dark); color: #fff; }
   .seg.big2 button.on[data-mode=erase] { background: var(--coral); }
   .seg.big2 button.on[data-mode=restore] { background: var(--save); }
 </style>
@@ -345,7 +347,8 @@
         <button type="button" data-mode="erase" class="on">Erase</button>
         <button type="button" data-mode="restore">Restore</button>
       </div>
-      <div class="range"><span>Brush</span><input type="range" id="edSize" min="6" max="100" value="32"></div>
+      <button type="button" id="edTap" class="tapbtn" aria-pressed="false">Tap area</button>
+      <div class="range"><span id="edSizeLbl">Brush</span><input type="range" id="edSize" min="6" max="100" value="32"></div>
     </div>
     <div class="ed-row">
       <button id="edUndo" class="secondary">Undo</button>
@@ -356,7 +359,7 @@
       <button id="edZoomIn" class="secondary" aria-label="Zoom in">+</button>
       <button id="edReset" class="secondary">Reset</button>
     </div>
-    <p class="hint" style="margin:0">Erase removes leftover background. Restore paints back parts of the product the AI cut off (the original photo shows faintly to guide you). Paint with one finger; pinch with two fingers to zoom and move.</p>
+    <p class="hint" style="margin:0" id="edHint">Erase removes leftover background. Restore paints back parts of the product the AI cut off (the original photo shows faintly to guide you). Paint with one finger; pinch with two fingers to zoom and move. <b>Tap area</b>: one tap removes (or brings back) a whole area of similar color.</p>
   </div>
 </div>
 
@@ -692,13 +695,14 @@ async function cutout(blob, onProgress) {
 }
 
 // Find the product, optionally cleaning up the cutout first.
-// Cleaning: (1) faint, half-see-through haze left from the old background is removed while soft
+// Cleaning: (0) pieces of the backdrop (for example a white table) that the AI kept attached to the
+// product's outer edge are removed by color; (1) faint, half-see-through haze left from the old background is removed while soft
 // product edges are kept; (2) any separate patch that is not attached to the product and is much
 // smaller than it (streaks, smudges, stray marks, a spare hanger) is wiped. Restore can bring a
 // wiped piece back if it was really part of the product.
 // The product box covers the rows and columns holding a real amount of solid product,
 // so a few stray specks cannot pull the framing off-center.
-function findProduct(src, clean) {
+function findProduct(src, clean, orig) {
   const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
   const c = makeCanvas(w, h);
   const ctx = c.getContext("2d", { willReadFrequently: true });
@@ -711,6 +715,7 @@ function findProduct(src, clean) {
       const a = d[p];
       d[p] = a <= LOW ? 0 : a >= HIGH ? 255 : Math.round((a - LOW) * 255 / (HIGH - LOW));
     }
+    if (orig) removeBackdropChunks(d, orig, w, h);
     keepFaintOnlyNearSolid(d, w, h, Math.max(4, Math.round(Math.max(w, h) * 0.006)));
     removeStrays(d, w, h);
     ctx.putImageData(data, 0, 0);
@@ -733,6 +738,119 @@ function findProduct(src, clean) {
     box = { x: bx, y: by, w: Math.min(w, x1 + pad + 1) - bx, h: Math.min(h, y1 + pad + 1) - by };
   }
   return { canvas: c, box };
+}
+
+// Pieces of the backdrop that the AI wrongly kept, attached to the product (for example a strip of the
+// white table next to light jeans). Measured on real store photos: the AI is fully sure about these
+// pieces, so only their color gives them away.
+// 1. The backdrop color = the most common color just outside the product.
+// 2. Starting from the product's outer edge, remove connected areas that have that color.
+// Safety: skipped when the product itself is close to the backdrop color (white clothes on a white
+// table), and undone if it would remove more than a quarter of the product.
+function removeBackdropChunks(d, orig, w, h) {
+  const n = w * h;
+  const oc = makeCanvas(w, h);
+  const octx = oc.getContext("2d", { willReadFrequently: true });
+  octx.drawImage(orig, 0, 0, w, h);
+  const o = octx.getImageData(0, 0, w, h).data;
+  oc.width = oc.height = 0;
+
+  const solid = new Uint8Array(n);
+  let productPx = 0;
+  for (let i = 0; i < n; i++) { if (d[i * 4 + 3] >= 128) solid[i] = 1; if (d[i * 4 + 3] > 0) productPx++; }
+  if (!productPx) return;
+  const near = nearMask(solid, w, h, Math.max(6, Math.round(Math.max(w, h) * 0.012)));
+
+  // most common color in a ring just outside the product (coarse 16-level bins per channel)
+  const bins = new Uint32Array(4096), sums = new Float64Array(4096 * 3);
+  for (let i = 0; i < n; i += 2) {
+    if (!near[i] || d[i * 4 + 3] !== 0) continue;
+    const r = o[i * 4], g = o[i * 4 + 1], b = o[i * 4 + 2];
+    const k = (r >> 4) * 256 + (g >> 4) * 16 + (b >> 4);
+    bins[k]++; sums[k * 3] += r; sums[k * 3 + 1] += g; sums[k * 3 + 2] += b;
+  }
+  let best = -1;
+  for (let k = 0; k < 4096; k++) if (best < 0 || bins[k] > bins[best]) best = k;
+  if (best < 0 || bins[best] < 50) return;
+  const bg = [sums[best * 3] / bins[best], sums[best * 3 + 1] / bins[best], sums[best * 3 + 2] / bins[best]];
+
+  // typical product color = per-channel median of solid product pixels
+  const hist = [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)];
+  let m = 0;
+  for (let i = 0; i < n; i += 3) if (d[i * 4 + 3] >= 250) { hist[0][o[i * 4]]++; hist[1][o[i * 4 + 1]]++; hist[2][o[i * 4 + 2]]++; m++; }
+  if (!m) return;
+  const med = hist.map(hc => { let acc = 0; for (let v = 0; v < 256; v++) { acc += hc[v]; if (acc >= m / 2) return v; } return 255; });
+  const gap = Math.hypot(med[0] - bg[0], med[1] - bg[1], med[2] - bg[2]);
+  if (gap < 60) return;   // product looks like the backdrop: too risky, leave it to Touch up
+  const T = Math.max(20, Math.min(55, gap * 0.45)), T2 = T * T;
+  const like = (i) => {
+    const dr = o[i * 4] - bg[0], dg = o[i * 4 + 1] - bg[1], db = o[i * 4 + 2] - bg[2];
+    return dr * dr + dg * dg + db * db < T2;
+  };
+
+  // flood from the product's outer edge through backdrop-colored product pixels
+  const take = new Uint8Array(n), stack = new Int32Array(n);
+  let top = 0, taken = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (!d[i * 4 + 3] || take[i] || !like(i)) continue;
+    const edge = x === 0 || y === 0 || x === w - 1 || y === h - 1 ||
+      !d[(i - 1) * 4 + 3] || !d[(i + 1) * 4 + 3] || !d[(i - w) * 4 + 3] || !d[(i + w) * 4 + 3];
+    if (!edge) continue;
+    take[i] = 1; stack[top++] = i; taken++;
+    while (top) {
+      const j = stack[--top];
+      const jx = j % w, jy = (j - jx) / w;
+      for (let yy = Math.max(0, jy - 1); yy <= Math.min(h - 1, jy + 1); yy++) {
+        for (let xx = Math.max(0, jx - 1); xx <= Math.min(w - 1, jx + 1); xx++) {
+          const k = yy * w + xx;
+          if (!take[k] && d[k * 4 + 3] && like(k)) { take[k] = 1; stack[top++] = k; taken++; }
+        }
+      }
+    }
+  }
+  if (taken > productPx * 0.25) return;   // would remove too much: probably part of the product
+  // A near-white, neutral backdrop (the store's white table): everything matching it goes, thin slivers too.
+  const neutralLight = Math.min(...bg) > 175 && Math.max(...bg) - Math.min(...bg) < 35;
+  if (neutralLight) { for (let i = 0; i < n; i++) if (take[i]) d[i * 4 + 3] = 0; return; }
+  // Other backdrops: only broad areas go (a piece of table is wide). Thin parts in a backdrop-like color, such as a light
+  // wooden hanger in front of a beige wall, a strap or a hook, are kept: keep only what lies within r of
+  // a spot that is at least r away from anything else.
+  const r = Math.max(6, Math.round(Math.max(w, h) * 0.012));
+  const notTake = new Uint8Array(n);
+  for (let i = 0; i < n; i++) notTake[i] = take[i] ? 0 : 1;
+  const nearOther = nearMask(notTake, w, h, r);
+  const core = new Uint8Array(n);
+  let coreCount = 0;
+  for (let i = 0; i < n; i++) if (take[i] && !nearOther[i]) { core[i] = 1; coreCount++; }
+  if (!coreCount) return;
+  const broad = nearMask(core, w, h, r + 1);
+  for (let i = 0; i < n; i++) if (take[i] && broad[i]) d[i * 4 + 3] = 0;
+}
+
+// For each pixel: is there a marked pixel within r pixels (a square around it)? Two quick passes.
+function nearMask(mark, w, h, r) {
+  const across = new Uint8Array(w * h), out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    let count = 0;
+    for (let x = 0; x < Math.min(r, w); x++) count += mark[row + x];
+    for (let x = 0; x < w; x++) {
+      if (x + r < w) count += mark[row + x + r];
+      if (x - r - 1 >= 0) count -= mark[row + x - r - 1];
+      across[row + x] = count > 0 ? 1 : 0;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let count = 0;
+    for (let y = 0; y < Math.min(r, h); y++) count += across[y * w + x];
+    for (let y = 0; y < h; y++) {
+      if (y + r < h) count += across[(y + r) * w + x];
+      if (y - r - 1 >= 0) count -= across[(y - r - 1) * w + x];
+      out[y * w + x] = count > 0 ? 1 : 0;
+    }
+  }
+  return out;
 }
 
 // Faint pixels (less than half solid) are real soft edges only when they sit right next to the product.
@@ -944,7 +1062,7 @@ startBtn.addEventListener("click", async () => {
       const cut = await cutout(input, onAiProgress);
       workingItem = null;
       item.stateEl.textContent = "Finishing...";
-      const { canvas, box } = findProduct(await loadImage(cut), true);
+      const { canvas, box } = findProduct(await loadImage(cut), true, await loadImage(input));
       item.input = input;
       await setCutout(item, canvas, box);
       item.aiCut = item.cut;
@@ -1070,7 +1188,8 @@ const ed = {
   vctx: edCanvas.getContext("2d"), tmp: makeCanvas(1, 1),
   cw: 0, ch: 0, dpr: 1, s: 1, fitS: 1, ox: 0, oy: 0,
   mode: "erase", undo: [], redo: [], pointers: new Map(),
-  drawing: false, last: null, pinch: null, hover: null, frame: 0, changed: false
+  drawing: false, last: null, pinch: null, hover: null, frame: 0, changed: false,
+  tap: false, tapStart: null, blur: null
 };
 let checker = null;
 
@@ -1093,7 +1212,7 @@ async function openEditor(item) {
     ed.mask = makeCanvas(ed.W, ed.H);
     ed.mctx = ed.mask.getContext("2d", { willReadFrequently: true });
     ed.mctx.drawImage(c, 0, 0, ed.W, ed.H);
-    ed.item = item; ed.undo = []; ed.redo = []; ed.changed = false; ed.hover = null;
+    ed.item = item; ed.undo = []; ed.redo = []; ed.changed = false; ed.hover = null; ed.blur = null; ed.tapStart = null;
     $("edTitle").textContent = "Touch up: " + item.file.name;
     setMode("erase");
     edEl.hidden = false;
@@ -1112,7 +1231,7 @@ function closeEditor() {
   edEl.hidden = true;
   document.body.classList.remove("editing");
   ed.orig.width = ed.orig.height = 0; ed.mask.width = ed.mask.height = 0;
-  ed.orig = ed.mask = ed.mctx = ed.item = null;
+  ed.orig = ed.mask = ed.mctx = ed.item = null; ed.blur = null;
   ed.undo = []; ed.redo = []; ed.pointers.clear(); ed.drawing = false; ed.pinch = null;
 }
 
@@ -1165,7 +1284,7 @@ function render() {
     v.setTransform(1, 0, 0, 1, 0, 0);
     v.drawImage(ed.tmp, 0, 0);
     v.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (ed.hover) {
+    if (ed.hover && !ed.tap) {
       const r = brushPx() / 2;
       v.lineWidth = 2; v.strokeStyle = "rgba(255,255,255,.95)";
       v.beginPath(); v.arc(ed.hover.x, ed.hover.y, r, 0, Math.PI * 2); v.stroke();
@@ -1176,6 +1295,96 @@ function render() {
 }
 
 const brushPx = () => parseInt(edSize.value, 10);   // brush width on screen
+
+// "Tap area": one tap removes (Erase) or brings back (Restore) the whole connected area whose color is
+// close to the tapped spot, e.g. a piece of table next to the product, or the denim around a close-up label.
+// The slider sets how different a color may be and still count ("Range").
+$("edTap").addEventListener("click", () => {
+  ed.tap = !ed.tap;
+  $("edTap").classList.toggle("on", ed.tap);
+  $("edTap").setAttribute("aria-pressed", String(ed.tap));
+  $("edSizeLbl").textContent = ed.tap ? "Range" : "Brush";
+  ed.hover = null;
+  render();
+});
+
+function smallOriginal() {
+  if (ed.blur) return ed.blur;
+  // A reduced copy (about 512 px): fabric texture and grain average out, while real edges stay sharp.
+  const f = Math.max(1, Math.round(Math.max(ed.W, ed.H) / 512));
+  const c = makeCanvas(Math.max(1, Math.round(ed.W / f)), Math.max(1, Math.round(ed.H / f)));
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.imageSmoothingQuality = "high";
+  x.drawImage(ed.orig, 0, 0, c.width, c.height);
+  ed.blur = { w: c.width, h: c.height, d: x.getImageData(0, 0, c.width, c.height).data };
+  c.width = c.height = 0;
+  return ed.blur;
+}
+
+// Grow from the tapped spot: a neighbor joins when it is close to the color next to it (so gradual
+// shading like faded denim is followed) and not too far from the tapped color (so it stops at the
+// product's edge or at a sharp change like denim meeting a white table).
+function fillArea(pt) {
+  const sm = smallOriginal(), w = sm.w, h = sm.h, b = sm.d;
+  const x0 = Math.floor(pt.x * w / ed.W), y0 = Math.floor(pt.y * h / ed.H);
+  if (x0 < 0 || y0 < 0 || x0 >= w || y0 >= h) return;
+  // Range slider scales the limits (0.5x-2x). Restore is generous so one tap brings back a whole fabric
+  // area (denim varies a lot from seams to faded knees); Erase is careful so tapping a white table next
+  // to light jeans never spills into the jeans. Both measured on the store's own photos.
+  const f = 0.5 + (brushPx() - 6) / 94 * 1.5;
+  const seedT = (ed.mode === "erase" ? 50 : 100) * f, stepT = (ed.mode === "erase" ? 28 : 60) * f;
+  const S2 = seedT * seedT, P2 = stepT * stepT;
+  const s0 = (y0 * w + x0) * 4, sr = b[s0], sg = b[s0 + 1], sb = b[s0 + 2];
+  const ok = (from, k) => {
+    const q = k * 4, f = from * 4;
+    const ar = b[q] - b[f], ag = b[q + 1] - b[f + 1], ab = b[q + 2] - b[f + 2];
+    if (ar * ar + ag * ag + ab * ab > P2) return false;
+    const dr = b[q] - sr, dg = b[q + 1] - sg, db = b[q + 2] - sb;
+    return dr * dr + dg * dg + db * db <= S2;
+  };
+  const region = new Uint8ClampedArray(w * h * 4), seen = new Uint8Array(w * h), stack = new Int32Array(w * h);
+  let top = 0;
+  seen[y0 * w + x0] = 1; stack[top++] = y0 * w + x0;
+  while (top) {
+    const j = stack[--top];
+    region[j * 4 + 3] = 255;
+    const x = j % w;
+    if (x > 0 && !seen[j - 1] && ok(j, j - 1)) { seen[j - 1] = 1; stack[top++] = j - 1; }
+    if (x < w - 1 && !seen[j + 1] && ok(j, j + 1)) { seen[j + 1] = 1; stack[top++] = j + 1; }
+    if (j >= w && !seen[j - w] && ok(j, j - w)) { seen[j - w] = 1; stack[top++] = j - w; }
+    if (j + w < w * h && !seen[j + w] && ok(j, j + w)) { seen[j + w] = 1; stack[top++] = j + w; }
+  }
+  if (ed.mode === "restore") {
+    // also bring back gaps fully enclosed by the area (very faded threads, small highlights)
+    const outside = new Uint8Array(w * h);
+    top = 0;
+    for (let i = 0; i < w * h; i++) {
+      const x = i % w, y = (i - x) / w;
+      if ((x === 0 || y === 0 || x === w - 1 || y === h - 1) && !seen[i]) { outside[i] = 1; stack[top++] = i; }
+    }
+    while (top) {
+      const j = stack[--top], x = j % w;
+      for (const k of [x > 0 ? j - 1 : -1, x < w - 1 ? j + 1 : -1, j - w, j + w]) {
+        if (k >= 0 && k < w * h && !seen[k] && !outside[k]) { outside[k] = 1; stack[top++] = k; }
+      }
+    }
+    for (let i = 0; i < w * h; i++) if (!outside[i]) region[i * 4 + 3] = 255;
+  }
+  // enlarge the area back to full size with smooth edges, then apply it to the mask
+  const rc = makeCanvas(w, h);
+  rc.getContext("2d").putImageData(new ImageData(region, w, h), 0, 0);
+  pushHistory();
+  const m = ed.mctx;
+  m.save();
+  m.imageSmoothingEnabled = true;
+  m.globalCompositeOperation = ed.mode === "erase" ? "destination-out" : "source-over";
+  m.drawImage(rc, 0, 0, ed.W, ed.H);
+  m.restore();
+  rc.width = rc.height = 0;
+  ed.changed = true;
+  render();
+}
+// --- end tap area ---
 
 function setMode(m) {
   ed.mode = m;
@@ -1257,11 +1466,13 @@ edCanvas.addEventListener("pointerdown", e => {
   ed.pointers.set(e.pointerId, p);
   ed.hover = e.pointerType === "mouse" ? p : null;
   if (ed.pointers.size === 1) {
+    if (ed.tap) { ed.tapStart = p; render(); return; }   // fill happens when the finger lifts
     pushHistory();
     ed.drawing = true;
     ed.last = toImage(p);
     paint(ed.last, ed.last);
   } else if (ed.pointers.size === 2) {
+    ed.tapStart = null;
     // second finger: this is a pinch, not painting, so take back the stroke just started
     if (ed.drawing) { applySnapshot(ed.undo.pop()); updateHistoryButtons(); ed.drawing = false; }
     ed.pinch = pinchState();
@@ -1289,6 +1500,11 @@ edCanvas.addEventListener("pointermove", e => {
 });
 
 function endPointer(e) {
+  if (ed.tap && ed.tapStart && ed.pointers.size === 1 && ed.pointers.has(e.pointerId) && e.type === "pointerup") {
+    const p = localPoint(e);
+    if (Math.hypot(p.x - ed.tapStart.x, p.y - ed.tapStart.y) < 12) fillArea(toImage(p));
+  }
+  if (ed.pointers.size <= 1) ed.tapStart = null;
   ed.pointers.delete(e.pointerId);
   if (ed.pointers.size < 2) ed.pinch = null;
   if (ed.pointers.size === 0) { ed.drawing = false; if (e.pointerType !== "mouse") ed.hover = null; }

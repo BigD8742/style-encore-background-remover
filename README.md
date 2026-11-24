@@ -37,7 +37,7 @@ Now:
 | Speed | Uses the phone's graphics chip (WebGPU) when available: about 1.5 s per photo, vs about 13 s on the regular processor (desktop measurement). Falls back automatically. |
 | AI kept on the phone | `sw.js` (service worker) stores the AI files after the first download (about 90 MB). Measured: 8 photos in 8 s right after a reload, vs 78–101 s when re-downloading. |
 | Download progress | "Getting the AI ready: 45% downloaded" in the status line and on the photo being worked on, so a slow connection doesn't look frozen. The AI starts downloading as soon as photos are picked. |
-| Clean white background | Automatic clean-up of the AI result (details under "How it works"): faint haze removed; faint pixels kept only right next to the product; separate patches smaller than 5% of the product (streaks, smudges, spare hangers) wiped. Tuned so white clothes on white backgrounds stay whole. |
+| Clean white background | Automatic clean-up of the AI result (details under "How it works"): pieces of the backdrop the AI kept attached to the product (e.g. strips of the store's white table next to light jeans) removed by color; faint haze removed; faint pixels kept only right next to the product; separate patches smaller than 5% of the product (streaks, smudges, spare hangers) wiped. Tuned so white clothes on white backgrounds stay whole. |
 
 ### Framing and output
 | Feature | Details |
@@ -53,7 +53,7 @@ Now:
 ### Editing (per photo)
 | Feature | Details |
 |---|---|
-| Touch up | Full screen. **Erase** removes leftover background; **Restore** paints back parts the AI cut off (the original shows faintly as a guide). Brush size, pinch-zoom (or mouse wheel), −/+/Fit, Undo/Redo (15 steps), Reset to the AI result. |
+| Touch up | Full screen. **Erase** removes leftover background; **Restore** paints back parts the AI cut off (the original shows faintly as a guide). Brush size, pinch-zoom (or mouse wheel), −/+/Fit, Undo/Redo (15 steps), Reset to the AI result. **Tap area**: one tap erases or brings back a whole area of similar color (e.g. bring back the denim around a close-up label; remove a piece of table); the slider becomes "Range". |
 | Position | Like Pixelcut: drag the product to move it, pinch to resize, snaps to center with guide lines; Smaller / Bigger / Center / Reset. Square and portrait are positioned separately, and positioning a shape also selects it. A placed product stays exactly where it was put, even after a Touch up or a margin change. |
 
 ### Saving and leaving
@@ -88,6 +88,7 @@ library loads from jsDelivr, and its model files from staticimgly.com.
 3. **`findProduct(img, clean=true)`**:
    - **Clean** (in this order):
      - Remap alpha: ≤ 64 → 0, ≥ 208 → 255, linear in between.
+     - `removeBackdropChunks` (needs the original photo): backdrop color = most common color in a ring just outside the product; from the product's outer edge, flood through product pixels within T of that color (T = 0.45 × the product/backdrop color gap, 20–55) and remove them. Skipped if the product's median color is within 60 of the backdrop (white on white); undone if it would take more than 25% of the product. On a near-white neutral backdrop everything matched goes; on other backdrops only broad areas go (thin parts such as a wooden hanger on a beige wall are kept).
      - `keepFaintOnlyNearSolid`: pixels under half solid are wiped unless they're within 0.6% of the image size of product that is at least half solid.
      - `removeStrays`: separate patches (8-connected, alpha ≥ 24) under 5% of the largest are wiped.
    - **Box:** rows and columns with a real amount of solid pixels (≥ 0.4% having alpha ≥ 128), plus 1% padding, so stray specks don't pull the framing off-center.
@@ -125,6 +126,7 @@ library loads from jsDelivr, and its model files from staticimgly.com.
 ## Key decisions and why
 
 - **Standard AI model (`isnet_fp16`), not the small one.** `isnet_quint8` left about 19% of a plain backdrop partly visible; `isnet_fp16` left 0%. The cost is a bigger download (about 90 MB vs about 40 MB), now stored on the phone.
+- **Kept the current AI model; ruled out BiRefNet.** BiRefNet (MIT license, more accurate) failed in the browser here: WebGPU errors with both its 115 MB and 224 MB versions, and out of memory on the regular processor. Too risky for iPhones. Instead, the store's real failure (table pieces attached to light jeans, which the AI was fully sure about) is fixed by the color-based clean-up, plus the Tap area tool.
 - **Graphics chip first.** It's 8–9× faster with identical cutouts, and falls back automatically on older phones.
 - **Service worker for the AI files only.** The browser's normal cache dropped the 90 MB of files between visits. The app page itself is never cached by the service worker, so updates arrive on a normal reload.
 - **Clean-up thresholds came from measurements.** White-on-white garments came back only 60–75% solid, so "solid" is set at 50%: an 80% line punched holes in a white top. Streaks were mostly under 25% solid. A spare hanger was 3.3% of the product's size, so the stray-patch cut-off is 5%.
@@ -152,9 +154,15 @@ library loads from jsDelivr, and its model files from staticimgly.com.
   - Feedback that led to the redesign: friendlier look, bigger buttons, more color, a clean exit, more speed, and drag to reposition.
   - Later feedback: unclear which photos were unsaved, a placed product moved after saving, and dirty streaks in the white. All three are fixed above.
 
+- **The store's own photos (light jeans on a white-painted wooden table; Pixelcut versions for comparison):** our app had left a chunk of table beside the front view and a streak beside the back, and stripped the denim from a label close-up.
+  - After the fix, front and back are clean (only a pinhead pink fleck of tape remains).
+  - Label close-up: one tap with Restore + Tap area brings the denim back.
+  - Re-checked: white top whole, lace hanger kept, spare hanger removed, bags clean.
+
 ### Known limitations
 
 - Sheer fabric (tulle, chiffon, mesh) is often removed by the AI. Use **Restore**.
+- Close-ups (e.g. a label on denim): the AI may treat only the label as the product. Use **Restore + Tap area** on the fabric, then **Position → Bigger** to fill the frame.
 - A smudge that is solid *and* touching the product (for example, a dark floor shadow right under a hem) isn't removed automatically. Use **Erase**.
 - A small separate piece that really belongs to the product (under 5% of its size, for example a detached tag) can be wiped by the clean-up. Use **Restore**.
 - The first run (or after iOS clears website data) downloads about 90 MB. Use Wi-Fi, keep the app open and the screen on during a batch.
@@ -183,6 +191,7 @@ library loads from jsDelivr, and its model files from staticimgly.com.
 | 2026-11-23 | Touch-up editor (erase/restore, zoom, undo) and soft shadow. Printable QR sheet. |
 | 2026-11-23 | Redesign (numbered steps, big buttons, bottom bar), Position screen, graphics-chip speed-up, Home Screen app, Start over / I'm finished. |
 | 2026-11-23 | Style Encore branding (logo header, red and gold); bright red app icon for Dark icon mode. |
+| 2026-11-23 | Tested on the store's real photos vs Pixelcut: backdrop-color clean-up for table pieces attached to the product; Tap area tool in Touch up. BiRefNet tried and ruled out. |
 | 2026-11-23 | Auto clean-up of streaks and stray patches, Saved/Not saved badges, save-only-changes, safe exit screen, positions kept after Touch up and margin changes, AI stored on the phone, download progress. |
 
 ---

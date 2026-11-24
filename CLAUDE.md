@@ -28,13 +28,17 @@ results, known limitations, upgrade ideas and the version history. Keep both fil
 - The original logo file isn't in the repo; `icons/logo.png` (a crop on white) works as the source for `tools/make_icons.py`.
 
 ## Rules that protect earlier fixes
-- **Clean-up** (`findProduct` → `keepFaintOnlyNearSolid` → `removeStrays`): after any change, re-test
+- **Clean-up** (`findProduct` → `removeBackdropChunks` → `keepFaintOnlyNearSolid` → `removeStrays`): after any change, re-test
+  - the store's real photos in `her-photos/` (gitignored, never commit): IMG_9023 front and IMG_9026 back (no table pieces), IMG_9024 label close-up; `pixelcut_*.JPG` are the target look;
   - a white garment on white: Unsplash photo-1578747522731-9e5a179b02f7 (no holes; it's only 60–75% solid);
   - a spare hanger: photo-1519554318711-aaf73ece6ff9 (should disappear);
   - the green dress on a rack: photo-1724891793770-49b41a5c9731 (no specks);
   - the lace dress: photo-1591221662157-6f62de5508eb;
   - bags: photo-1614179689702-355944cd0918 and photo-1682745230951-8a5aa9a474a0.
+  - the lace dress hanger must stay (thin backdrop-colored parts are protected unless the backdrop is near-white).
   Touch-up results are never auto-cleaned (`findProduct(out, false)`).
+- **Tap area** limits were measured on her photos: Restore seed 100 / step 60, Erase seed 50 / step 28 (× Range factor). Erase must never spill from the white table into light jeans.
+- BiRefNet was tried and doesn't run in the browser here (WebGPU errors, out of memory on CPU). Don't retry without a new reason. `her-photos/compare.html` is the side-by-side test page.
 - **Saving** is tracked per shape in `item.savedV`. Anything that changes how a shape looks must remove that
   shape from `savedV`. Margin, shadow, size and Touch up clear all shapes; Position clears the shapes it changed.
 - **Positions** (`item.pos[shape] = {k, x, y}`) are relative to the auto-fit. Anything that changes the box or
