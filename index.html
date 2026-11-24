@@ -16,6 +16,7 @@
     font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
   }
+  body.editing { overflow: hidden; }
   main { max-width: 720px; margin: 0 auto; }
   h1 { font-size: 22px; margin: 4px 0 2px; }
   .sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
@@ -38,6 +39,12 @@
   .seg { display: inline-flex; background: #e8e8ed; border-radius: 10px; padding: 3px; gap: 3px; }
   .seg button { background: transparent; color: var(--ink); padding: 7px 12px; border-radius: 8px; font-weight: 600; font-size: 14px; }
   .seg button.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .switch { position: relative; width: 50px; height: 30px; flex: none; }
+  .switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
+  .switch i { position: absolute; inset: 0; background: #d1d1d6; border-radius: 15px; transition: background .2s; }
+  .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
+  .switch input:checked + i { background: var(--accent); }
+  .switch input:checked + i::after { transform: translateX(20px); }
   .hint { font-size: 13px; color: var(--muted); margin: -6px 0 0; }
   .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   button, a.btn {
@@ -52,8 +59,8 @@
   .bar > i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .2s; }
   .list { display: grid; gap: 12px; }
   .item { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
-  .head { display: flex; gap: 12px; align-items: center; }
-  .thumb { width: 56px; height: 56px; border-radius: 10px; background: #fff; border: 1px solid var(--line); object-fit: cover; flex: none; }
+  .head { display: flex; gap: 8px; align-items: center; }
+  .thumb { width: 56px; height: 56px; border-radius: 10px; background: #fff; border: 1px solid var(--line); object-fit: cover; flex: none; margin-right: 4px; }
   .meta { min-width: 0; flex: 1; }
   .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .state { font-size: 13px; color: var(--muted); }
@@ -74,12 +81,33 @@
   .variant.on { border-color: var(--accent); background: var(--accent-soft); }
   .variant.on .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
   .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+
+  /* touch-up editor */
+  .editor {
+    position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column;
+    padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .editor[hidden] { display: none; }
+  .ed-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .ed-top strong { flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ed-top button { padding: 9px 14px; }
+  .ed-stage { position: relative; flex: 1; min-height: 0; border-radius: 12px; overflow: hidden; background: #e4e4e9; }
+  .ed-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: none; }
+  .ed-tools { display: grid; gap: 10px; padding-top: 10px; max-width: 720px; width: 100%; margin: 0 auto; }
+  .ed-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
+  .ed-row .range { flex: 1 1 160px; justify-content: flex-start; }
+  .ed-row .range input { max-width: none; }
+  .ed-row button { padding: 9px 12px; font-size: 14px; }
+  .ed-row .grow { flex: 1; }
+  .seg.big button { padding: 9px 18px; font-size: 15px; }
+  .seg.big button.on[data-mode=erase] { color: var(--bad); }
+  .seg.big button.on[data-mode=restore] { color: var(--accent); }
 </style>
 </head>
 <body>
 <main>
   <h1>White Background Maker</h1>
-  <p class="sub">Pick your product photos. Each one comes back on plain white, centered, in square and portrait. Tap the ones you want to keep.</p>
+  <p class="sub">Pick your product photos. Each one comes back on plain white, centered, in square and portrait. Tap the ones you want to keep, and use Touch up to fix any edges.</p>
 
   <label class="drop" id="drop">
     <input type="file" id="file" accept="image/*" multiple>
@@ -99,6 +127,10 @@
     <div class="row">
       <span>Space around product</span>
       <div class="range"><input type="range" id="margin" min="0" max="25" step="1" value="8"><output id="marginOut">8%</output></div>
+    </div>
+    <div class="row">
+      <span>Soft shadow under product</span>
+      <label class="switch"><input type="checkbox" id="shadow"><i></i></label>
     </div>
     <div class="row">
       <span>Keep</span>
@@ -129,6 +161,34 @@
   </p>
 </main>
 
+<div class="editor" id="editor" hidden>
+  <div class="ed-top">
+    <button id="edCancel" class="secondary">Cancel</button>
+    <strong id="edTitle">Touch up</strong>
+    <button id="edDone">Done</button>
+  </div>
+  <div class="ed-stage" id="edStage"><canvas id="edCanvas"></canvas></div>
+  <div class="ed-tools">
+    <div class="ed-row">
+      <div class="seg big" id="edMode">
+        <button type="button" data-mode="erase" class="on">Erase</button>
+        <button type="button" data-mode="restore">Restore</button>
+      </div>
+      <div class="range"><span>Brush</span><input type="range" id="edSize" min="6" max="100" value="32"></div>
+    </div>
+    <div class="ed-row">
+      <button id="edUndo" class="secondary">Undo</button>
+      <button id="edRedo" class="secondary">Redo</button>
+      <span class="grow"></span>
+      <button id="edZoomOut" class="secondary" aria-label="Zoom out">&minus;</button>
+      <button id="edFit" class="secondary">Fit</button>
+      <button id="edZoomIn" class="secondary" aria-label="Zoom in">+</button>
+      <button id="edReset" class="secondary">Reset</button>
+    </div>
+    <p class="hint" style="margin:0">Erase removes leftover background. Restore paints back parts of the product the AI cut off (the original photo shows faintly to guide you). Paint with one finger; pinch with two fingers to zoom and move.</p>
+  </div>
+</div>
+
 <script type="module">
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
@@ -136,14 +196,15 @@ const $ = (id) => document.getElementById(id);
 const fileInput = $("file"), drop = $("drop"), listEl = $("list");
 const startBtn = $("start"), saveBtn = $("saveAll"), clearBtn = $("clear");
 const statusEl = $("status"), barFill = $("barFill");
-const sizeEl = $("size"), marginEl = $("margin"), marginOut = $("marginOut"), pickEl = $("pick");
+const sizeEl = $("size"), marginEl = $("margin"), marginOut = $("marginOut"), pickEl = $("pick"), shadowEl = $("shadow");
 
 const PROCESS_SIDE = 2048;   // photos are shrunk to this before the AI runs (keeps phones from running out of memory)
 const PREVIEW_W = 360;       // preview canvas width in pixels
 const RATIO = { square: 1, portrait: 1.25 };   // height / width
 const LABEL = { square: "Square 1:1", portrait: "Portrait 4:5" };
+const VARIANTS = ["square", "portrait"];
 
-let items = [];   // see addFiles
+let items = [];
 let running = false;
 // The standard model gives clean cutouts. The smaller "quint8" model leaves haze from the old
 // background, so it is only a fallback if the standard one cannot load.
@@ -151,11 +212,11 @@ let modelName = "isnet_fp16";
 let defaultPick = "square";
 let pendingShare = null;   // files ready to share when the browser needs a fresh tap
 
-const settings = () => ({ width: parseInt(sizeEl.value, 10), margin: parseInt(marginEl.value, 10) });
+const settings = () => ({ width: parseInt(sizeEl.value, 10), margin: parseInt(marginEl.value, 10), shadow: shadowEl.checked });
 
 function setStatus(t) { statusEl.textContent = t; }
 function setBar(p) { barFill.style.width = Math.max(0, Math.min(100, p)) + "%"; }
-const pickSet = (p) => new Set(p === "both" ? ["square", "portrait"] : [p]);
+const pickSet = (p) => new Set(p === "both" ? VARIANTS : [p]);
 
 function addFiles(fileList) {
   const files = [...fileList].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
@@ -171,13 +232,14 @@ function addFiles(fileList) {
     items.push({
       file, el, thumbUrl, base,
       stateEl: el.querySelector(".state"),
-      cut: null,          // PNG blob of the cutout (transparent background)
+      input: null,        // the photo as sent to the AI (used by Restore)
+      aiCut: null,        // the AI's cutout (used by Reset)
+      cut: null,          // current cutout, PNG with transparent background
       box: null,          // { x, y, w, h } of the product inside the cutout
       small: null,        // small canvas of just the product, for fast previews
-      canvases: {},       // preview canvases by variant
-      cards: {},          // preview buttons by variant
+      canvases: {}, cards: {},
       chosen: pickSet(defaultPick),
-      cache: new Map()    // finished full-size JPEGs, keyed by variant and settings
+      cache: new Map()    // finished full-size JPEG for the latest settings
     });
   }
   refreshButtons();
@@ -196,6 +258,10 @@ function refreshButtons() {
   saveBtn.classList.toggle("secondary", !pendingShare);
   saveBtn.textContent = pendingShare ? "Tap again to save " + pendingShare.length : n ? "Save selected (" + n + ")" : "Save selected";
   clearBtn.disabled = running || !items.length;
+  for (const i of items) {
+    if (i.editBtn) i.editBtn.disabled = running;
+    if (i.saveBtn) i.saveBtn.disabled = running || !i.chosen.size;
+  }
 }
 
 fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInput.value = ""; });
@@ -218,12 +284,13 @@ pickEl.addEventListener("click", (e) => {
   refreshButtons();
 });
 
-marginEl.addEventListener("input", () => {
-  marginOut.textContent = marginEl.value + "%";
+function redrawAllPreviews() {
   pendingShare = null;
   for (const i of items) if (i.small) drawPreviews(i);
   refreshButtons();
-});
+}
+marginEl.addEventListener("input", () => { marginOut.textContent = marginEl.value + "%"; redrawAllPreviews(); });
+shadowEl.addEventListener("change", redrawAllPreviews);
 sizeEl.addEventListener("change", () => { pendingShare = null; refreshButtons(); });
 
 // ---------- image helpers ----------
@@ -276,29 +343,27 @@ async function cutout(blob, onProgress) {
   }
 }
 
-// Clean up the cutout and find the product.
-// 1. Faint, half-see-through leftovers of the old background are removed so the white stays clean;
-//    soft product edges are kept.
-// 2. The product box covers the rows and columns that hold a real amount of solid product,
-//    so a few stray specks cannot pull the framing off-center.
-function cleanAndFindBox(img) {
-  const w = img.naturalWidth, h = img.naturalHeight;
+// Find the product, optionally cleaning up the cutout first.
+// Cleaning removes faint, half-see-through leftovers of the old background; soft product edges are kept.
+// The product box covers the rows and columns holding a real amount of solid product,
+// so a few stray specks cannot pull the framing off-center.
+function findProduct(src, clean) {
+  const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
   const c = makeCanvas(w, h);
   const ctx = c.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(src, 0, 0, w, h);
   const data = ctx.getImageData(0, 0, w, h);
   const d = data.data;
   const LOW = 48, HIGH = 208;
   const rows = new Uint32Array(h), cols = new Uint32Array(w);
   for (let y = 0, p = 3; y < h; y++) {
     for (let x = 0; x < w; x++, p += 4) {
-      const a = d[p];
-      const na = a <= LOW ? 0 : a >= HIGH ? 255 : Math.round((a - LOW) * 255 / (HIGH - LOW));
-      d[p] = na;
-      if (na >= 128) { rows[y]++; cols[x]++; }
+      let a = d[p];
+      if (clean) { a = a <= LOW ? 0 : a >= HIGH ? 255 : Math.round((a - LOW) * 255 / (HIGH - LOW)); d[p] = a; }
+      if (a >= 128) { rows[y]++; cols[x]++; }
     }
   }
-  ctx.putImageData(data, 0, 0);
+  if (clean) ctx.putImageData(data, 0, 0);
   const minRow = Math.max(2, Math.round(w * 0.004)), minCol = Math.max(2, Math.round(h * 0.004));
   let y0 = 0, y1 = h - 1, x0 = 0, x1 = w - 1;
   while (y0 < h && rows[y0] < minRow) y0++;
@@ -316,15 +381,30 @@ function cleanAndFindBox(img) {
 }
 
 // Draw the product centered on white, leaving `margin` percent of the width as space on every side.
-function drawFramed(ctx, W, H, src, sx, sy, sw, sh, margin) {
+function drawFramed(ctx, W, H, src, sx, sy, sw, sh, margin, shadow) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
   const pad = W * margin / 100;
   const s = Math.min((W - 2 * pad) / sw, (H - 2 * pad) / sh);
   const dw = sw * s, dh = sh * s;
+  const dx = (W - dw) / 2, dy = (H - dh) / 2;
+  if (shadow) {
+    // A soft oval just under the bottom of the product, like a studio shot.
+    const rx = dw * 0.46, ry = Math.max(3, dw * 0.045);
+    ctx.save();
+    ctx.translate(W / 2, dy + dh - ry * 0.35);
+    ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, "rgba(0,0,0,0.30)");
+    g.addColorStop(0.55, "rgba(0,0,0,0.13)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(src, sx, sy, sw, sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  ctx.drawImage(src, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
 // ---------- previews ----------
@@ -332,7 +412,7 @@ function drawFramed(ctx, W, H, src, sx, sy, sw, sh, margin) {
 function buildVariants(item) {
   const wrap = document.createElement("div");
   wrap.className = "variants";
-  for (const v of ["square", "portrait"]) {
+  for (const v of VARIANTS) {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "variant";
@@ -354,25 +434,47 @@ function buildVariants(item) {
   }
   item.el.append(wrap);
 
+  const head = item.el.querySelector(".head");
+  const edit = document.createElement("button");
+  edit.className = "secondary";
+  edit.textContent = "Touch up";
+  edit.addEventListener("click", () => openEditor(item));
   const save = document.createElement("button");
   save.className = "secondary";
   save.textContent = "Save";
   save.addEventListener("click", () => saveItems([item]));
+  item.editBtn = edit;
   item.saveBtn = save;
-  item.el.querySelector(".head").append(save);
+  head.append(edit, save);
 }
 
 function drawPreviews(item) {
-  const { margin } = settings();
-  for (const v of ["square", "portrait"]) {
+  const { margin, shadow } = settings();
+  for (const v of VARIANTS) {
     const c = item.canvases[v];
-    drawFramed(c.getContext("2d"), c.width, c.height, item.small, 0, 0, item.small.width, item.small.height, margin);
+    drawFramed(c.getContext("2d"), c.width, c.height, item.small, 0, 0, item.small.width, item.small.height, margin, shadow);
   }
 }
 
 function paintChoice(item) {
-  for (const v of ["square", "portrait"]) if (item.cards[v]) item.cards[v].classList.toggle("on", item.chosen.has(v));
-  if (item.saveBtn) item.saveBtn.disabled = !item.chosen.size;
+  for (const v of VARIANTS) if (item.cards[v]) item.cards[v].classList.toggle("on", item.chosen.has(v));
+}
+
+// Store a new cutout for a photo (from the AI or from Touch up) and refresh its previews.
+async function setCutout(item, canvas, box) {
+  const ps = Math.min(1, 720 / Math.max(box.w, box.h));
+  const small = makeCanvas(Math.max(1, Math.round(box.w * ps)), Math.max(1, Math.round(box.h * ps)));
+  const sctx = small.getContext("2d");
+  sctx.imageSmoothingQuality = "high";
+  sctx.drawImage(canvas, box.x, box.y, box.w, box.h, 0, 0, small.width, small.height);
+  item.cut = await canvasToBlob(canvas, "image/png");
+  item.box = box;
+  item.small = small;
+  item.cache.clear();
+  if (!item.canvases.square) buildVariants(item);
+  drawPreviews(item);
+  paintChoice(item);
+  pendingShare = null;
 }
 
 // ---------- processing ----------
@@ -394,18 +496,11 @@ startBtn.addEventListener("click", async () => {
         if (total && /fetch/i.test(key)) item.stateEl.textContent = "Downloading AI model " + Math.round((current / total) * 100) + "%";
       });
       item.stateEl.textContent = "Finishing...";
-      const { canvas: clean, box } = cleanAndFindBox(await loadImage(cut));
-      const ps = Math.min(1, 720 / Math.max(box.w, box.h));
-      const small = makeCanvas(Math.max(1, Math.round(box.w * ps)), Math.max(1, Math.round(box.h * ps)));
-      const sctx = small.getContext("2d");
-      sctx.imageSmoothingQuality = "high";
-      sctx.drawImage(clean, box.x, box.y, box.w, box.h, 0, 0, small.width, small.height);
-      const cleanBlob = await canvasToBlob(clean, "image/png");
-      clean.width = clean.height = 0;
-      Object.assign(item, { cut: cleanBlob, box, small });
-      buildVariants(item);
-      drawPreviews(item);
-      paintChoice(item);
+      const { canvas, box } = findProduct(await loadImage(cut), true);
+      item.input = input;
+      await setCutout(item, canvas, box);
+      item.aiCut = item.cut;
+      canvas.width = canvas.height = 0;
       item.stateEl.textContent = "Done. Tap the versions you want.";
       item.stateEl.className = "state ok";
     } catch (err) {
@@ -421,24 +516,25 @@ startBtn.addEventListener("click", async () => {
 
   running = false;
   const ok = items.filter(i => i.cut).length;
-  setStatus(ok + " of " + items.length + " finished. Pick square or portrait, then tap Save selected.");
+  setStatus(ok + " of " + items.length + " finished. Pick square or portrait, use Touch up if an edge needs fixing, then tap Save selected.");
   refreshButtons();
 });
 
 // ---------- saving ----------
 
 async function renderFull(item, v) {
-  const { width, margin } = settings();
-  const key = v + "|" + width + "|" + margin;
+  const { width, margin, shadow } = settings();
+  const key = v + "|" + width + "|" + margin + "|" + shadow;
   if (item.cache.has(key)) return item.cache.get(key);
   const img = await loadImage(item.cut);
   const H = Math.round(width * RATIO[v]);
   const c = makeCanvas(width, H);
-  drawFramed(c.getContext("2d"), width, H, img, item.box.x, item.box.y, item.box.w, item.box.h, margin);
+  drawFramed(c.getContext("2d"), width, H, img, item.box.x, item.box.y, item.box.w, item.box.h, margin, shadow);
   const blob = await canvasToBlob(c, "image/jpeg", 0.92);
   c.width = c.height = 0;
   const file = new File([blob], item.base + "-" + v + ".jpg", { type: "image/jpeg" });
-  item.cache.clear();   // keep only the latest settings to save memory
+  // keep at most one finished file per shape so memory stays low
+  for (const k of [...item.cache.keys()]) if (k.startsWith(v + "|")) item.cache.delete(k);
   item.cache.set(key, file);
   return file;
 }
@@ -478,7 +574,7 @@ async function saveItems(list) {
     return;
   }
   const jobs = [];
-  for (const i of list) if (i.cut) for (const v of ["square", "portrait"]) if (i.chosen.has(v)) jobs.push([i, v]);
+  for (const i of list) if (i.cut) for (const v of VARIANTS) if (i.chosen.has(v)) jobs.push([i, v]);
   if (!jobs.length) return;
   running = true; refreshButtons();
   const files = [];
@@ -501,6 +597,280 @@ async function saveItems(list) {
 }
 
 saveBtn.addEventListener("click", () => saveItems(items));
+
+// ---------- touch-up editor ----------
+// The editor keeps a "mask": an image whose see-through-ness says which parts of the original photo
+// belong to the product. Erase cuts holes in the mask, Restore fills it back in.
+
+const edEl = $("editor"), edStage = $("edStage"), edCanvas = $("edCanvas"), edSize = $("edSize");
+const ed = {
+  item: null, orig: null, mask: null, mctx: null, W: 0, H: 0,
+  vctx: edCanvas.getContext("2d"), tmp: makeCanvas(1, 1),
+  cw: 0, ch: 0, dpr: 1, s: 1, fitS: 1, ox: 0, oy: 0,
+  mode: "erase", undo: [], redo: [], pointers: new Map(),
+  drawing: false, last: null, pinch: null, hover: null, frame: 0, changed: false
+};
+let checker = null;
+
+function checkerPattern() {
+  if (checker) return checker;
+  const c = makeCanvas(16, 16), x = c.getContext("2d");
+  x.fillStyle = "#ffffff"; x.fillRect(0, 0, 16, 16);
+  x.fillStyle = "#e6e6ea"; x.fillRect(0, 0, 8, 8); x.fillRect(8, 8, 8, 8);
+  return (checker = ed.vctx.createPattern(c, "repeat"));
+}
+
+async function openEditor(item) {
+  if (running || !item.cut) return;
+  running = true; refreshButtons();
+  try {
+    const [o, c] = await Promise.all([loadImage(item.input), loadImage(item.cut)]);
+    ed.W = o.naturalWidth; ed.H = o.naturalHeight;
+    ed.orig = makeCanvas(ed.W, ed.H);
+    ed.orig.getContext("2d").drawImage(o, 0, 0);
+    ed.mask = makeCanvas(ed.W, ed.H);
+    ed.mctx = ed.mask.getContext("2d", { willReadFrequently: true });
+    ed.mctx.drawImage(c, 0, 0, ed.W, ed.H);
+    ed.item = item; ed.undo = []; ed.redo = []; ed.changed = false; ed.hover = null;
+    $("edTitle").textContent = "Touch up: " + item.file.name;
+    setMode("erase");
+    edEl.hidden = false;
+    document.body.classList.add("editing");
+    layoutEditor(); fitView();
+    updateHistoryButtons();
+  } catch (err) {
+    console.error(err);
+    setStatus("Could not open Touch up: " + (err && err.message ? err.message : "unknown error"));
+  } finally {
+    running = false; refreshButtons();
+  }
+}
+
+function closeEditor() {
+  edEl.hidden = true;
+  document.body.classList.remove("editing");
+  ed.orig.width = ed.orig.height = 0; ed.mask.width = ed.mask.height = 0;
+  ed.orig = ed.mask = ed.mctx = ed.item = null;
+  ed.undo = []; ed.redo = []; ed.pointers.clear(); ed.drawing = false; ed.pinch = null;
+}
+
+function layoutEditor() {
+  const r = edStage.getBoundingClientRect();
+  ed.dpr = Math.min(2, window.devicePixelRatio || 1);
+  ed.cw = r.width; ed.ch = r.height;
+  edCanvas.width = Math.round(r.width * ed.dpr); edCanvas.height = Math.round(r.height * ed.dpr);
+  ed.tmp.width = edCanvas.width; ed.tmp.height = edCanvas.height;
+  checker = null;
+}
+
+function fitView() {
+  ed.fitS = Math.min(ed.cw / ed.W, ed.ch / ed.H) * 0.94;
+  ed.s = ed.fitS;
+  ed.ox = (ed.cw - ed.W * ed.s) / 2;
+  ed.oy = (ed.ch - ed.H * ed.s) / 2;
+  render();
+}
+
+function zoomAt(factor, cx, cy) {
+  const ns = Math.max(ed.fitS * 0.5, Math.min(ed.fitS * 10, ed.s * factor));
+  const ix = (cx - ed.ox) / ed.s, iy = (cy - ed.oy) / ed.s;
+  ed.s = ns;
+  ed.ox = cx - ix * ns; ed.oy = cy - iy * ns;
+  render();
+}
+
+function render() {
+  if (ed.frame) return;
+  ed.frame = requestAnimationFrame(() => {
+    ed.frame = 0;
+    if (!ed.mask) return;
+    const v = ed.vctx, t = ed.tmp.getContext("2d"), dpr = ed.dpr;
+    const x = ed.ox, y = ed.oy, w = ed.W * ed.s, h = ed.H * ed.s;
+    v.setTransform(dpr, 0, 0, dpr, 0, 0);
+    v.fillStyle = "#e4e4e9"; v.fillRect(0, 0, ed.cw, ed.ch);
+    v.fillStyle = checkerPattern(); v.fillRect(x, y, w, h);
+    v.imageSmoothingQuality = "high";
+    if (ed.mode === "restore") { v.globalAlpha = 0.35; v.drawImage(ed.orig, x, y, w, h); v.globalAlpha = 1; }
+    // product = original photo, kept only where the mask is solid
+    t.setTransform(1, 0, 0, 1, 0, 0);
+    t.globalCompositeOperation = "source-over";
+    t.clearRect(0, 0, ed.tmp.width, ed.tmp.height);
+    t.setTransform(dpr, 0, 0, dpr, 0, 0);
+    t.drawImage(ed.mask, x, y, w, h);
+    t.globalCompositeOperation = "source-in";
+    t.drawImage(ed.orig, x, y, w, h);
+    t.globalCompositeOperation = "source-over";
+    v.setTransform(1, 0, 0, 1, 0, 0);
+    v.drawImage(ed.tmp, 0, 0);
+    v.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (ed.hover) {
+      const r = brushPx() / 2;
+      v.lineWidth = 2; v.strokeStyle = "rgba(255,255,255,.95)";
+      v.beginPath(); v.arc(ed.hover.x, ed.hover.y, r, 0, Math.PI * 2); v.stroke();
+      v.lineWidth = 1; v.strokeStyle = ed.mode === "erase" ? "#c0392b" : "#0a7a5a";
+      v.beginPath(); v.arc(ed.hover.x, ed.hover.y, r, 0, Math.PI * 2); v.stroke();
+    }
+  });
+}
+
+const brushPx = () => parseInt(edSize.value, 10);   // brush width on screen
+
+function setMode(m) {
+  ed.mode = m;
+  for (const b of $("edMode").querySelectorAll("button")) b.classList.toggle("on", b.dataset.mode === m);
+  render();
+}
+$("edMode").addEventListener("click", e => { const b = e.target.closest("button[data-mode]"); if (b) setMode(b.dataset.mode); });
+
+// History stores only the mask's see-through channel, to keep memory low on phones.
+function snapshot() {
+  const d = ed.mctx.getImageData(0, 0, ed.W, ed.H).data;
+  const a = new Uint8ClampedArray(ed.W * ed.H);
+  for (let i = 0, p = 3; i < a.length; i++, p += 4) a[i] = d[p];
+  return a;
+}
+function applySnapshot(a) {
+  const img = ed.mctx.createImageData(ed.W, ed.H);
+  const d = img.data;
+  for (let i = 0, p = 3; i < a.length; i++, p += 4) d[p] = a[i];
+  ed.mctx.putImageData(img, 0, 0);
+}
+function pushHistory() {
+  ed.undo.push(snapshot());
+  if (ed.undo.length > 15) ed.undo.shift();
+  ed.redo = [];
+  updateHistoryButtons();
+}
+function updateHistoryButtons() {
+  $("edUndo").disabled = !ed.undo.length;
+  $("edRedo").disabled = !ed.redo.length;
+}
+$("edUndo").addEventListener("click", () => {
+  if (!ed.undo.length) return;
+  ed.redo.push(snapshot()); applySnapshot(ed.undo.pop()); ed.changed = true; updateHistoryButtons(); render();
+});
+$("edRedo").addEventListener("click", () => {
+  if (!ed.redo.length) return;
+  ed.undo.push(snapshot()); applySnapshot(ed.redo.pop()); ed.changed = true; updateHistoryButtons(); render();
+});
+$("edReset").addEventListener("click", async () => {
+  pushHistory();
+  const c = await loadImage(ed.item.aiCut);
+  ed.mctx.globalCompositeOperation = "source-over";
+  ed.mctx.clearRect(0, 0, ed.W, ed.H);
+  ed.mctx.drawImage(c, 0, 0, ed.W, ed.H);
+  ed.changed = true;
+  render();
+});
+$("edFit").addEventListener("click", fitView);
+$("edZoomIn").addEventListener("click", () => zoomAt(1.5, ed.cw / 2, ed.ch / 2));
+$("edZoomOut").addEventListener("click", () => zoomAt(1 / 1.5, ed.cw / 2, ed.ch / 2));
+edSize.addEventListener("input", () => { ed.hover = ed.hover || { x: ed.cw / 2, y: ed.ch / 2 }; render(); });
+
+function toImage(p) { return { x: (p.x - ed.ox) / ed.s, y: (p.y - ed.oy) / ed.s }; }
+function localPoint(e) { const r = edCanvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+
+function paint(a, b) {
+  const m = ed.mctx;
+  m.save();
+  m.globalCompositeOperation = ed.mode === "erase" ? "destination-out" : "source-over";
+  m.strokeStyle = m.fillStyle = "#000";
+  m.lineCap = m.lineJoin = "round";
+  m.lineWidth = brushPx() / ed.s;
+  m.beginPath(); m.moveTo(a.x, a.y); m.lineTo(b.x, b.y); m.stroke();
+  m.beginPath(); m.arc(b.x, b.y, m.lineWidth / 2, 0, Math.PI * 2); m.fill();
+  m.restore();
+  ed.changed = true;
+}
+
+function pinchState() {
+  const [p, q] = [...ed.pointers.values()];
+  return { dist: Math.hypot(p.x - q.x, p.y - q.y) || 1, mid: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }, s: ed.s, ox: ed.ox, oy: ed.oy };
+}
+
+edCanvas.addEventListener("pointerdown", e => {
+  if (e.button > 0) return;
+  try { edCanvas.setPointerCapture(e.pointerId); } catch { /* not every pointer can be captured */ }
+  const p = localPoint(e);
+  ed.pointers.set(e.pointerId, p);
+  ed.hover = e.pointerType === "mouse" ? p : null;
+  if (ed.pointers.size === 1) {
+    pushHistory();
+    ed.drawing = true;
+    ed.last = toImage(p);
+    paint(ed.last, ed.last);
+  } else if (ed.pointers.size === 2) {
+    // second finger: this is a pinch, not painting, so take back the stroke just started
+    if (ed.drawing) { applySnapshot(ed.undo.pop()); updateHistoryButtons(); ed.drawing = false; }
+    ed.pinch = pinchState();
+  }
+  render();
+});
+
+edCanvas.addEventListener("pointermove", e => {
+  const p = localPoint(e);
+  if (e.pointerType === "mouse") ed.hover = p;
+  if (!ed.pointers.has(e.pointerId)) { render(); return; }
+  ed.pointers.set(e.pointerId, p);
+  if (ed.pinch && ed.pointers.size >= 2) {
+    const now = pinchState(), st = ed.pinch;
+    const ns = Math.max(ed.fitS * 0.5, Math.min(ed.fitS * 10, st.s * now.dist / st.dist));
+    const ix = (st.mid.x - st.ox) / st.s, iy = (st.mid.y - st.oy) / st.s;
+    ed.s = ns; ed.ox = now.mid.x - ix * ns; ed.oy = now.mid.y - iy * ns;
+  } else if (ed.drawing) {
+    if (e.pointerType !== "mouse") ed.hover = p;
+    const cur = toImage(p);
+    paint(ed.last, cur);
+    ed.last = cur;
+  }
+  render();
+});
+
+function endPointer(e) {
+  ed.pointers.delete(e.pointerId);
+  if (ed.pointers.size < 2) ed.pinch = null;
+  if (ed.pointers.size === 0) { ed.drawing = false; if (e.pointerType !== "mouse") ed.hover = null; }
+  render();
+}
+edCanvas.addEventListener("pointerup", endPointer);
+edCanvas.addEventListener("pointercancel", endPointer);
+edCanvas.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { ed.hover = null; render(); } });
+edCanvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const p = localPoint(e);
+  zoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y);
+}, { passive: false });
+window.addEventListener("resize", () => { if (!edEl.hidden) { layoutEditor(); render(); } });
+
+$("edCancel").addEventListener("click", () => {
+  if (ed.changed && !confirm("Discard your touch-up changes?")) return;
+  closeEditor();
+});
+
+$("edDone").addEventListener("click", async () => {
+  const item = ed.item;
+  if (!ed.changed) { closeEditor(); return; }
+  $("edDone").disabled = true;
+  try {
+    const out = makeCanvas(ed.W, ed.H);
+    const o = out.getContext("2d");
+    o.drawImage(ed.mask, 0, 0);
+    o.globalCompositeOperation = "source-in";
+    o.drawImage(ed.orig, 0, 0);
+    const { box } = findProduct(out, false);
+    await setCutout(item, out, box);
+    out.width = out.height = 0;
+    item.stateEl.textContent = "Touched up. Tap the versions you want.";
+    item.stateEl.className = "state ok";
+    closeEditor();
+    refreshButtons();
+  } catch (err) {
+    console.error(err);
+    alert("Could not save the touch-up: " + (err && err.message ? err.message : "unknown error"));
+  } finally {
+    $("edDone").disabled = false;
+  }
+});
 </script>
 </body>
 </html>
