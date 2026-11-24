@@ -1,0 +1,14 @@
+{
+  "name": "White Background Maker",
+  "short_name": "BG Maker",
+  "description": "Clean, white product photos for Instagram and the website.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f2fa",
+  "theme_color": "#5b2a86",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

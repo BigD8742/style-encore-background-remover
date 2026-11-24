@@ -4,83 +4,170 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BG Maker">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#5b2a86">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <title>White Background Maker</title>
 <style>
   :root {
-    --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --muted: #6e6e73;
-    --accent: #0a7a5a; --accent-ink: #ffffff; --accent-soft: #eefaf5; --line: #d9d9de; --bad: #c0392b;
+    --bg: #f6f2fa; --card: #ffffff; --ink: #231f2b; --muted: #6c6577; --line: #e3dcea;
+    --brand: #5b2a86; --brand2: #a8327a; --brand-soft: #f0e7f7;
+    --go: #6a3fd1; --go2: #b8338f;
+    --save: #0c8a63; --save-soft: #e5f6ef;
+    --coral: #d9573a; --coral-soft: #fdece7;
+    --bad: #c0392b;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
   }
-  body.editing { overflow: hidden; }
-  main { max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 4px 0 2px; }
-  .sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
-  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  body.has-bar { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  body.editing, body.done-open { overflow: hidden; }
+
+  /* header */
+  .top {
+    background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff;
+    padding: calc(env(safe-area-inset-top) + 18px) 18px 22px; border-radius: 0 0 26px 26px;
+    box-shadow: 0 6px 20px rgba(91,42,134,.25);
+  }
+  .top-in { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+  .logo { width: 52px; height: 52px; border-radius: 15px; background: rgba(255,255,255,.18); display: grid; place-items: center; flex: none; }
+  .logo svg { width: 32px; height: 32px; }
+  .top h1 { font-size: 23px; margin: 0; letter-spacing: -.2px; }
+  .top p { margin: 2px 0 0; font-size: 14.5px; opacity: .9; }
+
+  main { max-width: 720px; margin: 0 auto; padding: 18px 16px 0; }
+  .step { margin-bottom: 22px; }
+  .step-h { display: flex; align-items: center; gap: 10px; margin: 0 2px 10px; }
+  .num {
+    width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none;
+    font-weight: 800; font-size: 15px; color: #fff; background: var(--brand);
+  }
+  .step:nth-of-type(2) .num { background: #2f7fbf; }
+  .step:nth-of-type(3) .num { background: var(--save); }
+  .step:nth-of-type(4) .num { background: var(--coral); }
+  .step-h h2 { font-size: 19px; margin: 0; }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: 0 1px 3px rgba(35,31,43,.05); }
+
+  /* choose photos */
   .drop {
-    display: block; text-align: center; border: 2px dashed var(--line); border-radius: 14px;
-    padding: 26px 12px; background: var(--card); cursor: pointer; margin-bottom: 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+    border: 2.5px dashed #c9b6dc; border-radius: 20px; padding: 24px 14px; background: var(--card); cursor: pointer;
   }
-  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
-  .drop strong { display: block; font-size: 17px; }
+  .drop.over { border-color: var(--brand); background: var(--brand-soft); }
+  .drop .pick {
+    display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: #fff;
+    background: linear-gradient(135deg, var(--brand), var(--brand2)); padding: 15px 26px; border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(168,50,122,.3);
+  }
+  .drop .pick svg { width: 24px; height: 24px; }
   .drop span { color: var(--muted); font-size: 14px; }
   input[type=file] { display: none; }
-  .opts { display: grid; gap: 14px; }
+
+  /* settings */
+  .opts { display: grid; gap: 16px; }
   .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-  .row > span { font-weight: 600; }
-  select { font-size: 16px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+  .row > span { font-weight: 650; }
+  select { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; color: var(--ink); }
   .range { display: flex; align-items: center; gap: 10px; flex: 1 1 200px; justify-content: flex-end; }
-  .range input { flex: 1; max-width: 220px; accent-color: var(--accent); }
-  .range output { width: 40px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
-  .seg { display: inline-flex; background: #e8e8ed; border-radius: 10px; padding: 3px; gap: 3px; }
-  .seg button { background: transparent; color: var(--ink); padding: 7px 12px; border-radius: 8px; font-weight: 600; font-size: 14px; }
-  .seg button.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
-  .switch { position: relative; width: 50px; height: 30px; flex: none; }
+  .range input { flex: 1; max-width: 220px; accent-color: var(--brand); height: 28px; }
+  .range output { width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
+  .seg { display: inline-flex; background: var(--brand-soft); border-radius: 14px; padding: 4px; gap: 4px; }
+  .seg button { background: transparent; color: var(--brand); padding: 10px 16px; border-radius: 11px; font-weight: 700; font-size: 15px; box-shadow: none; min-height: 0; }
+  .seg button.on { background: var(--brand); color: #fff; box-shadow: 0 2px 6px rgba(91,42,134,.3); }
+  .switch { position: relative; width: 54px; height: 32px; flex: none; }
   .switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
-  .switch i { position: absolute; inset: 0; background: #d1d1d6; border-radius: 15px; transition: background .2s; }
-  .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
-  .switch input:checked + i { background: var(--accent); }
-  .switch input:checked + i::after { transform: translateX(20px); }
-  .hint { font-size: 13px; color: var(--muted); margin: -6px 0 0; }
-  .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  button, a.btn {
-    font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 12px 16px;
-    background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none; text-align: center;
+  .switch i { position: absolute; inset: 0; background: #d6cfdd; border-radius: 16px; transition: background .2s; }
+  .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+  .switch input:checked + i { background: var(--brand); }
+  .switch input:checked + i::after { transform: translateX(22px); }
+  .hint { font-size: 13.5px; color: var(--muted); margin: -4px 0 0; }
+
+  /* buttons */
+  button {
+    font: inherit; font-weight: 700; border: 0; border-radius: 14px; padding: 12px 18px; min-height: 48px;
+    background: var(--brand); color: #fff; cursor: pointer; text-align: center;
   }
-  button.secondary { background: #e8e8ed; color: var(--ink); }
+  button.secondary { background: var(--brand-soft); color: var(--brand); }
   button:disabled { opacity: .45; cursor: default; }
-  .btns button { flex: 1 1 140px; }
-  .status { font-size: 14px; color: var(--muted); margin: 0 0 12px; min-height: 20px; }
-  .bar { height: 8px; background: #e8e8ed; border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
-  .bar > i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .2s; }
-  .list { display: grid; gap: 12px; }
-  .item { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
-  .head { display: flex; gap: 8px; align-items: center; }
-  .thumb { width: 56px; height: 56px; border-radius: 10px; background: #fff; border: 1px solid var(--line); object-fit: cover; flex: none; margin-right: 4px; }
+  button:active:not(:disabled) { transform: scale(.98); }
+  .big { font-size: 18px; min-height: 58px; border-radius: 16px; padding: 14px 18px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+  .big svg { width: 22px; height: 22px; flex: none; }
+  .go { background: linear-gradient(135deg, var(--go), var(--go2)); box-shadow: 0 4px 14px rgba(106,63,209,.35); }
+  .save { background: var(--save); box-shadow: 0 4px 14px rgba(12,138,99,.3); }
+  .save.ready { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(12,138,99,.25); } }
+  .coral { background: var(--coral-soft); color: var(--coral); }
+  .dark { background: var(--ink); }
+
+  /* bottom action bar */
+  .actionbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: rgba(255,255,255,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line); padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .actionbar[hidden] { display: none; }
+  .actionbar .in { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; }
+  .actionbar button { flex: 1; }
+  .actionbar button[hidden] { display: none; }
+
+  /* progress + list */
+  .status { font-size: 15px; color: var(--muted); margin: 0 2px 10px; min-height: 20px; }
+  .bar { height: 10px; background: var(--brand-soft); border-radius: 5px; overflow: hidden; margin-bottom: 14px; }
+  .bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--go), var(--go2)); transition: width .3s; }
+  .empty { text-align: center; color: var(--muted); padding: 22px 12px; font-size: 15px; }
+  .list { display: grid; gap: 14px; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px; box-shadow: 0 1px 3px rgba(35,31,43,.05); }
+  .head { display: flex; gap: 10px; align-items: center; }
+  .thumb { width: 56px; height: 56px; border-radius: 12px; background: #fff; border: 1px solid var(--line); object-fit: cover; flex: none; }
   .meta { min-width: 0; flex: 1; }
-  .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .state { font-size: 13px; color: var(--muted); }
-  .state.ok { color: var(--accent); }
+  .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .state { font-size: 13.5px; color: var(--muted); }
+  .state.ok { color: var(--save); font-weight: 600; }
   .state.err { color: var(--bad); }
-  .head button { padding: 8px 12px; font-size: 14px; flex: none; }
+  .head-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .head-btns button { flex: 1; min-height: 44px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .head-btns svg { width: 18px; height: 18px; }
+  .touch { background: #fff4d6; color: #8a5a00; }
+  .save-one { background: var(--save-soft); color: var(--save); }
   .variants { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; align-items: end; }
   .variant {
-    position: relative; display: block; width: 100%; padding: 6px; border-radius: 12px;
-    background: #fff; color: var(--ink); border: 2px solid var(--line); font-weight: 500;
+    position: relative; display: block; width: 100%; padding: 6px; border-radius: 14px; min-height: 0;
+    background: #fff; color: var(--ink); border: 2.5px solid var(--line); font-weight: 600;
   }
-  .variant canvas { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid #eee; }
-  .variant .lbl { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 2px 0; }
+  .variant canvas { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid #eee; }
+  .variant .lbl { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; padding: 7px 2px 1px; }
   .variant .tick {
-    width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: inline-grid; place-items: center;
-    font-size: 13px; color: transparent;
+    width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); display: inline-grid; place-items: center;
+    font-size: 14px; color: transparent;
   }
-  .variant.on { border-color: var(--accent); background: var(--accent-soft); }
-  .variant.on .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .variant.on { border-color: var(--save); background: var(--save-soft); }
+  .variant.on .tick { background: var(--save); border-color: var(--save); color: #fff; }
+
+  .endbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .endbtns button { white-space: nowrap; padding-left: 10px; padding-right: 10px; gap: 8px; font-size: 17px; }
+  .note { font-size: 13px; color: var(--muted); margin: 6px 2px 18px; }
+
+  /* all done screen */
+  .done {
+    position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px;
+    background: linear-gradient(160deg, var(--brand), var(--brand2)); color: #fff; text-align: center;
+  }
+  .done[hidden] { display: none; }
+  .done-in { max-width: 420px; }
+  .done .check { width: 96px; height: 96px; border-radius: 50%; background: #fff; display: grid; place-items: center; margin: 0 auto 18px; }
+  .done .check svg { width: 54px; height: 54px; }
+  .done h2 { font-size: 30px; margin: 0 0 8px; }
+  .done p { font-size: 17px; margin: 0 0 12px; opacity: .95; }
+  .done .how { background: rgba(255,255,255,.15); border-radius: 16px; padding: 14px 16px; margin: 18px 0 24px; font-size: 16px; }
+  .done button { background: #fff; color: var(--brand); width: 100%; }
 
   /* touch-up editor */
   .editor {
@@ -90,87 +177,143 @@
   .editor[hidden] { display: none; }
   .ed-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
   .ed-top strong { flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ed-top button { padding: 9px 14px; }
-  .ed-stage { position: relative; flex: 1; min-height: 0; border-radius: 12px; overflow: hidden; background: #e4e4e9; }
+  .ed-top button { padding: 9px 16px; }
+  .ed-stage { position: relative; flex: 1; min-height: 0; border-radius: 14px; overflow: hidden; background: #e7e2ec; }
   .ed-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: none; }
   .ed-tools { display: grid; gap: 10px; padding-top: 10px; max-width: 720px; width: 100%; margin: 0 auto; }
   .ed-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
   .ed-row .range { flex: 1 1 160px; justify-content: flex-start; }
   .ed-row .range input { max-width: none; }
-  .ed-row button { padding: 9px 12px; font-size: 14px; }
+  .ed-row button { padding: 9px 13px; font-size: 15px; min-height: 44px; }
   .ed-row .grow { flex: 1; }
-  .seg.big button { padding: 9px 18px; font-size: 15px; }
-  .seg.big button.on[data-mode=erase] { color: var(--bad); }
-  .seg.big button.on[data-mode=restore] { color: var(--accent); }
+  .ad-shape { display: flex; justify-content: center; margin-bottom: 8px; }
+  #adCanvas { cursor: grab; }
+  .ad-tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .ad-tools button { padding: 9px 6px; font-size: 15px; min-height: 46px; }
+  .pos-btn { background: #e4effa; color: #2f6fa8; }
+  .seg.big2 button { padding: 10px 20px; font-size: 16px; }
+  .seg.big2 button.on[data-mode=erase] { background: var(--coral); }
+  .seg.big2 button.on[data-mode=restore] { background: var(--save); }
 </style>
 </head>
 <body>
+<header class="top">
+  <div class="top-in">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 6.5a2.5 2.5 0 1 1 2.5 2.5c-1 0-2.5.6-2.5 2v1.2"/><path d="M16 12.2 4.5 20.5c-1 .8-.5 2.5.9 2.5h21.2c1.4 0 1.9-1.7.9-2.5L16 12.2Z"/></svg>
+    </div>
+    <div>
+      <h1>White Background Maker</h1>
+      <p>Clean, white product photos for Instagram and the website</p>
+    </div>
+  </div>
+</header>
+
 <main>
-  <h1>White Background Maker</h1>
-  <p class="sub">Pick your product photos. Each one comes back on plain white, centered, in square and portrait. Tap the ones you want to keep, and use Touch up to fix any edges.</p>
+  <section class="step">
+    <div class="step-h"><span class="num">1</span><h2>Choose your photos</h2></div>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/*" multiple>
+      <span class="pick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
+        Choose photos
+      </span>
+      <span>Pick as many as you like. You can add more any time.</span>
+    </label>
+  </section>
 
-  <label class="drop" id="drop">
-    <input type="file" id="file" accept="image/*" multiple>
-    <strong>Tap to choose photos</strong>
-    <span>or drop them here. You can pick as many as you like.</span>
-  </label>
-
-  <div class="panel opts">
-    <div class="row">
-      <span>Output size</span>
-      <select id="size">
-        <option value="1080">Instagram (1080 wide)</option>
-        <option value="2000" selected>Website (2000 wide)</option>
-        <option value="2400">Large (2400 wide)</option>
-      </select>
-    </div>
-    <div class="row">
-      <span>Space around product</span>
-      <div class="range"><input type="range" id="margin" min="0" max="25" step="1" value="8"><output id="marginOut">8%</output></div>
-    </div>
-    <div class="row">
-      <span>Soft shadow under product</span>
-      <label class="switch"><input type="checkbox" id="shadow"><i></i></label>
-    </div>
-    <div class="row">
-      <span>Keep</span>
-      <div class="seg" id="pick">
-        <button type="button" data-pick="square" class="on">Square</button>
-        <button type="button" data-pick="portrait">Portrait</button>
-        <button type="button" data-pick="both">Both</button>
+  <section class="step">
+    <div class="step-h"><span class="num">2</span><h2>Settings</h2></div>
+    <div class="panel opts">
+      <div class="row">
+        <span>Keep</span>
+        <div class="seg" id="pick">
+          <button type="button" data-pick="square" class="on">Square</button>
+          <button type="button" data-pick="portrait">Portrait</button>
+          <button type="button" data-pick="both">Both</button>
+        </div>
       </div>
+      <div class="row">
+        <span>Output size</span>
+        <select id="size">
+          <option value="1080">Instagram (1080 wide)</option>
+          <option value="2000" selected>Website (2000 wide)</option>
+          <option value="2400">Large (2400 wide)</option>
+        </select>
+      </div>
+      <div class="row">
+        <span>Space around product</span>
+        <div class="range"><input type="range" id="margin" min="0" max="25" step="1" value="8"><output id="marginOut">8%</output></div>
+      </div>
+      <div class="row">
+        <span>Soft shadow under product</span>
+        <label class="switch"><input type="checkbox" id="shadow"><i></i></label>
+      </div>
+      <p class="hint">Square is 1:1. Portrait is 4:5, Instagram's tall post. "Keep" sets every photo at once; you can still tap a picture below to add or remove it.</p>
     </div>
-    <p class="hint">"Keep" sets every photo at once. You can still tap a picture below to add or remove it. Square is 1:1, portrait is 4:5 (Instagram's tall post).</p>
-  </div>
+  </section>
 
-  <div class="btns">
-    <button id="start" disabled>Remove backgrounds</button>
-    <button id="saveAll" class="secondary" disabled>Save selected</button>
-    <button id="clear" class="secondary" disabled>Clear</button>
-  </div>
+  <section class="step">
+    <div class="step-h"><span class="num">3</span><h2>Your photos</h2></div>
+    <p class="status" id="status"></p>
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="panel empty" id="empty">Photos you choose will show up here.</div>
+    <div class="list" id="list"></div>
+  </section>
 
-  <p class="status" id="status"></p>
-  <div class="bar"><i id="barFill"></i></div>
-
-  <div class="list" id="list"></div>
-
-  <p class="note">
-    Everything runs on this device. Your photos are never uploaded.
-    The first run downloads the AI model (about 90 MB, best on Wi-Fi) and may take a minute; after that it is much faster.
-    Keep this screen open while it works.
-  </p>
+  <section class="step">
+    <div class="step-h"><span class="num">4</span><h2>All done?</h2></div>
+    <div class="endbtns">
+      <button id="clear" class="big coral" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        Start over
+      </button>
+      <button id="finish" class="big dark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        I'm finished
+      </button>
+    </div>
+    <p class="note">
+      Everything runs on this phone; your photos are never uploaded.
+      The first time, the app downloads its AI (about 90 MB, best on Wi-Fi). After that it starts quickly.
+      Keep the screen on while a batch is working.
+    </p>
+  </section>
 </main>
+
+<div class="actionbar" id="actionbar" hidden>
+  <div class="in">
+    <button id="start" class="big go">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
+      <span>Remove backgrounds</span>
+    </button>
+    <button id="saveAll" class="big save" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      <span>Save selected</span>
+    </button>
+  </div>
+</div>
+
+<div class="done" id="done" hidden>
+  <div class="done-in">
+    <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#0c8a63" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+    <h2>All done!</h2>
+    <p id="doneMsg">Your saved photos are in the Photos app.</p>
+    <div class="how" id="doneHow"></div>
+    <button id="again" class="big">Start a new batch</button>
+  </div>
+</div>
 
 <div class="editor" id="editor" hidden>
   <div class="ed-top">
     <button id="edCancel" class="secondary">Cancel</button>
     <strong id="edTitle">Touch up</strong>
-    <button id="edDone">Done</button>
+    <button id="edDone" class="save">Done</button>
   </div>
   <div class="ed-stage" id="edStage"><canvas id="edCanvas"></canvas></div>
   <div class="ed-tools">
     <div class="ed-row">
-      <div class="seg big" id="edMode">
+      <div class="seg big2" id="edMode">
         <button type="button" data-mode="erase" class="on">Erase</button>
         <button type="button" data-mode="restore">Restore</button>
       </div>
@@ -189,12 +332,36 @@
   </div>
 </div>
 
+<div class="editor" id="adjust" hidden>
+  <div class="ed-top">
+    <button id="adCancel" class="secondary">Cancel</button>
+    <strong id="adTitle">Position</strong>
+    <button id="adDone" class="save">Done</button>
+  </div>
+  <div class="ad-shape">
+    <div class="seg" id="adShape">
+      <button type="button" data-shape="square" class="on">Square</button>
+      <button type="button" data-shape="portrait">Portrait</button>
+    </div>
+  </div>
+  <div class="ed-stage" id="adStage"><canvas id="adCanvas"></canvas></div>
+  <div class="ed-tools">
+    <div class="ad-tools">
+      <button id="adSmaller" class="secondary">&minus; Smaller</button>
+      <button id="adBigger" class="secondary">+ Bigger</button>
+      <button id="adCenter" class="secondary">Center</button>
+      <button id="adReset" class="secondary">Reset</button>
+    </div>
+    <p class="hint" style="margin:0">Drag the product with one finger to move it. Pinch with two fingers to make it bigger or smaller. It snaps to the center when it gets close. Square and portrait are positioned separately.</p>
+  </div>
+</div>
+
 <script type="module">
-import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
+import { removeBackground, preload } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 const $ = (id) => document.getElementById(id);
-const fileInput = $("file"), drop = $("drop"), listEl = $("list");
-const startBtn = $("start"), saveBtn = $("saveAll"), clearBtn = $("clear");
+const fileInput = $("file"), drop = $("drop"), listEl = $("list"), emptyEl = $("empty");
+const startBtn = $("start"), saveBtn = $("saveAll"), clearBtn = $("clear"), finishBtn = $("finish"), actionBar = $("actionbar");
 const statusEl = $("status"), barFill = $("barFill");
 const sizeEl = $("size"), marginEl = $("margin"), marginOut = $("marginOut"), pickEl = $("pick"), shadowEl = $("shadow");
 
@@ -203,23 +370,43 @@ const PREVIEW_W = 360;       // preview canvas width in pixels
 const RATIO = { square: 1, portrait: 1.25 };   // height / width
 const LABEL = { square: "Square 1:1", portrait: "Portrait 4:5" };
 const VARIANTS = ["square", "portrait"];
+const ICON_TOUCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4-12 12H6v-4L18 2Z"/><path d="M3 22h18"/></svg>';
+const ICON_MOVE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><path d="m9 5 3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg>';
+const ICON_SAVE ='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
 
 let items = [];
 let running = false;
 // The standard model gives clean cutouts. The smaller "quint8" model leaves haze from the old
 // background, so it is only a fallback if the standard one cannot load.
 let modelName = "isnet_fp16";
+// Use the phone's graphics chip when the browser allows it (much faster); otherwise the regular processor.
+// Add ?cpu to the web address to force the regular processor.
+let device = ("gpu" in navigator && !/[?&]cpu\b/.test(location.search)) ? "gpu" : "cpu";
 let defaultPick = "square";
 let pendingShare = null;   // files ready to share when the browser needs a fresh tap
+let preloading = null;
 
 const settings = () => ({ width: parseInt(sizeEl.value, 10), margin: parseInt(marginEl.value, 10), shadow: shadowEl.checked });
+const aiConfig = () => ({ model: modelName, device, output: { format: "image/png" } });
 
 function setStatus(t) { statusEl.textContent = t; }
 function setBar(p) { barFill.style.width = Math.max(0, Math.min(100, p)) + "%"; }
 const pickSet = (p) => new Set(p === "both" ? VARIANTS : [p]);
+// Manual position: k = size compared with the automatic fit, x / y = shift as a fraction of the frame width / height.
+const defaultPos = () => ({ k: 1, x: 0, y: 0 });
+const posKey = (p) => p.k.toFixed(3) + "," + p.x.toFixed(4) + "," + p.y.toFixed(4);
+const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+
+// Start downloading the AI while photos are being picked, so the first photo does not wait for it.
+function warmUp() {
+  if (preloading) return;
+  preloading = preload(aiConfig()).catch(err => console.warn("Preload failed; it will load on first use", err));
+}
 
 function addFiles(fileList) {
   const files = [...fileList].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
+  if (!files.length) return;
+  warmUp();
   for (const file of files) {
     const el = document.createElement("div");
     el.className = "item";
@@ -239,11 +426,13 @@ function addFiles(fileList) {
       small: null,        // small canvas of just the product, for fast previews
       canvases: {}, cards: {},
       chosen: pickSet(defaultPick),
-      cache: new Map()    // finished full-size JPEG for the latest settings
+      pos: { square: defaultPos(), portrait: defaultPos() },   // manual position per shape
+      saved: false,
+      cache: new Map()    // finished full-size JPEG per shape, for the latest settings
     });
   }
   refreshButtons();
-  setStatus(items.length ? items.length + " photo" + (items.length === 1 ? "" : "s") + " ready." : "");
+  setStatus(plural(items.filter(i => !i.cut).length, "photo") + " ready. Tap Remove backgrounds.");
 }
 
 function selectedCount() {
@@ -251,15 +440,27 @@ function selectedCount() {
 }
 
 function refreshButtons() {
-  const pending = items.some(i => !i.cut);
-  startBtn.disabled = running || !items.length || !pending;
+  const pendingN = items.filter(i => !i.cut).length;
+  const anyDone = items.some(i => i.cut);
   const n = selectedCount();
+  actionBar.hidden = !items.length;
+  document.body.classList.toggle("has-bar", items.length > 0);
+  emptyEl.hidden = items.length > 0;
+
+  startBtn.hidden = !pendingN && !running;
+  startBtn.disabled = running;
+  if (!running) startBtn.querySelector("span").textContent = "Remove backgrounds" + (pendingN > 1 ? " (" + pendingN + ")" : "");
+
+  saveBtn.hidden = !anyDone || (running && !pendingShare && pendingN > 0);
   saveBtn.disabled = running || !n;
-  saveBtn.classList.toggle("secondary", !pendingShare);
-  saveBtn.textContent = pendingShare ? "Tap again to save " + pendingShare.length : n ? "Save selected (" + n + ")" : "Save selected";
+  saveBtn.classList.toggle("ready", !!pendingShare);
+  saveBtn.querySelector("span").textContent = pendingShare ? "Tap to save " + pendingShare.length : n ? "Save selected (" + n + ")" : "Save selected";
+
   clearBtn.disabled = running || !items.length;
+  finishBtn.disabled = running;
   for (const i of items) {
     if (i.editBtn) i.editBtn.disabled = running;
+    if (i.moveBtn) i.moveBtn.disabled = running;
     if (i.saveBtn) i.saveBtn.disabled = running || !i.chosen.size;
   }
 }
@@ -269,9 +470,41 @@ fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInpu
 ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
 
-clearBtn.addEventListener("click", () => {
+const unsavedCount = () => items.filter(i => i.cut && i.chosen.size && !i.saved).length;
+
+function clearAll() {
   for (const i of items) URL.revokeObjectURL(i.thumbUrl);
   items = []; pendingShare = null; listEl.innerHTML = ""; setBar(0); setStatus(""); refreshButtons();
+}
+
+clearBtn.addEventListener("click", () => {
+  const u = unsavedCount();
+  if (u && !confirm(plural(u, "photo") + " not saved yet. Start over anyway?")) return;
+  clearAll();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+// A web page cannot send the phone to its Home Screen, so "I'm finished" clears everything
+// and shows how to leave.
+finishBtn.addEventListener("click", () => {
+  if (running) return;
+  const u = unsavedCount();
+  if (u && !confirm(plural(u, "photo") + " not saved yet. Finish anyway?")) return;
+  const hadSaved = items.some(i => i.saved);
+  clearAll();
+  const standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+  $("doneMsg").textContent = hadSaved ? "Your saved photos are in the Photos app." : "Everything has been cleared.";
+  $("doneHow").innerHTML = standalone
+    ? "To leave, <b>swipe up from the bottom of the screen</b> (or press the Home button)."
+    : "To leave, <b>swipe up from the bottom of the screen</b> or close this Safari tab.<br><br>Tip: tap Share &rarr; <b>Add to Home Screen</b> to open this like an app next time.";
+  $("done").hidden = false;
+  document.body.classList.add("done-open");
+  try { window.close(); } catch { /* only works for windows opened by a script */ }
+});
+$("again").addEventListener("click", () => {
+  $("done").hidden = true;
+  document.body.classList.remove("done-open");
+  window.scrollTo(0, 0);
 });
 
 pickEl.addEventListener("click", (e) => {
@@ -286,12 +519,12 @@ pickEl.addEventListener("click", (e) => {
 
 function redrawAllPreviews() {
   pendingShare = null;
-  for (const i of items) if (i.small) drawPreviews(i);
+  for (const i of items) if (i.small) { drawPreviews(i); i.saved = false; }
   refreshButtons();
 }
 marginEl.addEventListener("input", () => { marginOut.textContent = marginEl.value + "%"; redrawAllPreviews(); });
 shadowEl.addEventListener("change", redrawAllPreviews);
-sizeEl.addEventListener("change", () => { pendingShare = null; refreshButtons(); });
+sizeEl.addEventListener("change", () => { pendingShare = null; for (const i of items) i.saved = false; refreshButtons(); });
 
 // ---------- image helpers ----------
 
@@ -330,14 +563,19 @@ async function prepareInput(file) {
 }
 
 async function cutout(blob, onProgress) {
-  const run = (model) => removeBackground(blob, { model, device: "cpu", output: { format: "image/png" }, progress: onProgress });
+  const run = () => removeBackground(blob, { ...aiConfig(), progress: onProgress });
   try {
-    return await run(modelName);
+    return await run();
   } catch (err) {
+    if (device === "gpu") {
+      console.warn("Graphics chip failed, using the regular processor", err);
+      device = "cpu";
+      return await run();
+    }
     if (modelName === "isnet_fp16") {
       console.warn("Standard model failed, trying the smaller one", err);
       modelName = "isnet_quint8";
-      return await run(modelName);
+      return await run();
     }
     throw err;
   }
@@ -380,19 +618,21 @@ function findProduct(src, clean) {
   return { canvas: c, box };
 }
 
-// Draw the product centered on white, leaving `margin` percent of the width as space on every side.
-function drawFramed(ctx, W, H, src, sx, sy, sw, sh, margin, shadow) {
+// Draw the product on white. Automatically it is centered, leaving `margin` percent of the width as space
+// on every side; `pos` (from the Position screen) then resizes and moves it.
+function drawFramed(ctx, W, H, src, sx, sy, sw, sh, margin, shadow, pos) {
+  pos = pos || defaultPos();
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
   const pad = W * margin / 100;
-  const s = Math.min((W - 2 * pad) / sw, (H - 2 * pad) / sh);
+  const s = Math.min((W - 2 * pad) / sw, (H - 2 * pad) / sh) * pos.k;
   const dw = sw * s, dh = sh * s;
-  const dx = (W - dw) / 2, dy = (H - dh) / 2;
+  const dx = (W - dw) / 2 + pos.x * W, dy = (H - dh) / 2 + pos.y * H;
   if (shadow) {
     // A soft oval just under the bottom of the product, like a studio shot.
     const rx = dw * 0.46, ry = Math.max(3, dw * 0.045);
     ctx.save();
-    ctx.translate(W / 2, dy + dh - ry * 0.35);
+    ctx.translate(dx + dw / 2, dy + dh - ry * 0.35);
     ctx.scale(1, ry / rx);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
     g.addColorStop(0, "rgba(0,0,0,0.30)");
@@ -423,7 +663,7 @@ function buildVariants(item) {
     lbl.firstChild.textContent = LABEL[v];
     card.append(c, lbl);
     card.addEventListener("click", () => {
-      if (item.chosen.has(v)) item.chosen.delete(v); else item.chosen.add(v);
+      if (item.chosen.has(v)) item.chosen.delete(v); else { item.chosen.add(v); item.saved = false; }
       pendingShare = null;
       paintChoice(item);
       refreshButtons();
@@ -434,25 +674,32 @@ function buildVariants(item) {
   }
   item.el.append(wrap);
 
-  const head = item.el.querySelector(".head");
+  const btns = document.createElement("div");
+  btns.className = "head-btns";
   const edit = document.createElement("button");
-  edit.className = "secondary";
-  edit.textContent = "Touch up";
+  edit.className = "touch";
+  edit.innerHTML = ICON_TOUCH + "<span>Touch up</span>";
   edit.addEventListener("click", () => openEditor(item));
+  const move = document.createElement("button");
+  move.className = "pos-btn";
+  move.innerHTML = ICON_MOVE + "<span>Position</span>";
+  move.addEventListener("click", () => openAdjust(item));
   const save = document.createElement("button");
-  save.className = "secondary";
-  save.textContent = "Save";
+  save.className = "save-one";
+  save.innerHTML = ICON_SAVE + "<span>Save</span>";
   save.addEventListener("click", () => saveItems([item]));
   item.editBtn = edit;
+  item.moveBtn = move;
   item.saveBtn = save;
-  head.append(edit, save);
+  btns.append(edit, move, save);
+  item.el.append(btns);
 }
 
 function drawPreviews(item) {
   const { margin, shadow } = settings();
   for (const v of VARIANTS) {
     const c = item.canvases[v];
-    drawFramed(c.getContext("2d"), c.width, c.height, item.small, 0, 0, item.small.width, item.small.height, margin, shadow);
+    drawFramed(c.getContext("2d"), c.width, c.height, item.small, 0, 0, item.small.width, item.small.height, margin, shadow, item.pos[v]);
   }
 }
 
@@ -470,6 +717,7 @@ async function setCutout(item, canvas, box) {
   item.cut = await canvasToBlob(canvas, "image/png");
   item.box = box;
   item.small = small;
+  item.saved = false;
   item.cache.clear();
   if (!item.canvases.square) buildVariants(item);
   drawPreviews(item);
@@ -484,16 +732,19 @@ startBtn.addEventListener("click", async () => {
   running = true; refreshButtons();
   const todo = items.filter(i => !i.cut);
   let done = 0;
+  const t0 = performance.now();
   setBar(0);
 
   for (const item of todo) {
     item.stateEl.className = "state";
     item.stateEl.textContent = "Working...";
-    setStatus("Photo " + (done + 1) + " of " + todo.length + (done === 0 ? ". First photo is slowest while the AI model loads." : ""));
+    startBtn.querySelector("span").textContent = "Working... " + (done + 1) + " of " + todo.length;
+    setStatus("Photo " + (done + 1) + " of " + todo.length + (done === 0 ? ". The first one is slowest while the AI gets ready." : ""));
+    item.el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     try {
       const input = await prepareInput(item.file);
       const cut = await cutout(input, (key, current, total) => {
-        if (total && /fetch/i.test(key)) item.stateEl.textContent = "Downloading AI model " + Math.round((current / total) * 100) + "%";
+        if (total && /fetch/i.test(key)) item.stateEl.textContent = "Downloading AI " + Math.round((current / total) * 100) + "%";
       });
       item.stateEl.textContent = "Finishing...";
       const { canvas, box } = findProduct(await loadImage(cut), true);
@@ -510,13 +761,13 @@ startBtn.addEventListener("click", async () => {
     }
     done++;
     setBar((done / todo.length) * 100);
-    refreshButtons();
-    await new Promise(r => setTimeout(r, 50));   // let the screen update and free memory
+    await new Promise(r => setTimeout(r, 30));   // let the screen update and free memory
   }
 
   running = false;
+  const secs = Math.round((performance.now() - t0) / 1000);
   const ok = items.filter(i => i.cut).length;
-  setStatus(ok + " of " + items.length + " finished. Pick square or portrait, use Touch up if an edge needs fixing, then tap Save selected.");
+  setStatus(ok + " of " + items.length + " finished in " + secs + " seconds. Pick square or portrait, use Touch up if an edge needs fixing, then tap Save selected.");
   refreshButtons();
 });
 
@@ -524,12 +775,12 @@ startBtn.addEventListener("click", async () => {
 
 async function renderFull(item, v) {
   const { width, margin, shadow } = settings();
-  const key = v + "|" + width + "|" + margin + "|" + shadow;
+  const key = v + "|" + width + "|" + margin + "|" + shadow + "|" + posKey(item.pos[v]);
   if (item.cache.has(key)) return item.cache.get(key);
   const img = await loadImage(item.cut);
   const H = Math.round(width * RATIO[v]);
   const c = makeCanvas(width, H);
-  drawFramed(c.getContext("2d"), width, H, img, item.box.x, item.box.y, item.box.w, item.box.h, margin, shadow);
+  drawFramed(c.getContext("2d"), width, H, img, item.box.x, item.box.y, item.box.w, item.box.h, margin, shadow, item.pos[v]);
   const blob = await canvasToBlob(c, "image/jpeg", 0.92);
   c.width = c.height = 0;
   const file = new File([blob], item.base + "-" + v + ".jpg", { type: "image/jpeg" });
@@ -563,14 +814,21 @@ async function shareOrDownload(files) {
   return "downloaded";
 }
 
+function afterSave(r, files, list) {
+  if (r === "cancelled") { setStatus("Save cancelled."); return; }
+  for (const i of list) if (i.cut && i.chosen.size) i.saved = true;
+  setStatus("Saved " + plural(files.length, "photo") + ". When you're done, tap I'm finished.");
+}
+
+let pendingList = null;
 async function saveItems(list) {
   if (running) return;
   // Phones only allow the share sheet right after a tap. If an earlier attempt was blocked, share the ready files now.
   if (pendingShare && list === items) {
-    const files = pendingShare;
-    pendingShare = null; refreshButtons();
-    const r = await shareOrDownload(files);
-    setStatus(r === "cancelled" ? "Save cancelled." : "Saved " + files.length + " photo" + (files.length === 1 ? "" : "s") + ".");
+    const files = pendingShare, from = pendingList || items;
+    pendingShare = null; pendingList = null; refreshButtons();
+    afterSave(await shareOrDownload(files), files, from);
+    refreshButtons();
     return;
   }
   const jobs = [];
@@ -588,10 +846,10 @@ async function saveItems(list) {
   }
   const r = await shareOrDownload(files);
   if (r === "needs-tap") {
-    pendingShare = files;
-    setStatus(files.length + " photos are ready. Tap the green Save button once more to put them in your Photos.");
+    pendingShare = files; pendingList = list;
+    setStatus(plural(files.length, "photo") + " ready. Tap the green Save button once more to put them in your Photos.");
   } else {
-    setStatus(r === "cancelled" ? "Save cancelled." : "Saved " + files.length + " photo" + (files.length === 1 ? "" : "s") + ".");
+    afterSave(r, files, list);
   }
   refreshButtons();
 }
@@ -687,7 +945,7 @@ function render() {
     const v = ed.vctx, t = ed.tmp.getContext("2d"), dpr = ed.dpr;
     const x = ed.ox, y = ed.oy, w = ed.W * ed.s, h = ed.H * ed.s;
     v.setTransform(dpr, 0, 0, dpr, 0, 0);
-    v.fillStyle = "#e4e4e9"; v.fillRect(0, 0, ed.cw, ed.ch);
+    v.fillStyle = "#e7e2ec"; v.fillRect(0, 0, ed.cw, ed.ch);
     v.fillStyle = checkerPattern(); v.fillRect(x, y, w, h);
     v.imageSmoothingQuality = "high";
     if (ed.mode === "restore") { v.globalAlpha = 0.35; v.drawImage(ed.orig, x, y, w, h); v.globalAlpha = 1; }
@@ -707,7 +965,7 @@ function render() {
       const r = brushPx() / 2;
       v.lineWidth = 2; v.strokeStyle = "rgba(255,255,255,.95)";
       v.beginPath(); v.arc(ed.hover.x, ed.hover.y, r, 0, Math.PI * 2); v.stroke();
-      v.lineWidth = 1; v.strokeStyle = ed.mode === "erase" ? "#c0392b" : "#0a7a5a";
+      v.lineWidth = 1; v.strokeStyle = ed.mode === "erase" ? "#d9573a" : "#0c8a63";
       v.beginPath(); v.arc(ed.hover.x, ed.hover.y, r, 0, Math.PI * 2); v.stroke();
     }
   });
@@ -871,6 +1129,158 @@ $("edDone").addEventListener("click", async () => {
     $("edDone").disabled = false;
   }
 });
+
+// ---------- position screen ----------
+// Drag to move the product inside the square or portrait frame, pinch to resize.
+
+const adEl = $("adjust"), adStage = $("adStage"), adCanvas = $("adCanvas");
+const ad = {
+  item: null, shape: "square", pos: null, ctx: adCanvas.getContext("2d"),
+  cw: 0, ch: 0, dpr: 1, fx: 0, fy: 0, fw: 1, fh: 1,
+  pointers: new Map(), drag: null, pinch: null, snapX: false, snapY: false, frame: 0
+};
+const SNAP = 0.015;   // within 1.5% of the center counts as centered
+
+function openAdjust(item) {
+  if (running || !item.small) return;
+  ad.item = item;
+  ad.pos = { square: { ...item.pos.square }, portrait: { ...item.pos.portrait } };
+  setShape(item.chosen.has("square") || !item.chosen.has("portrait") ? "square" : "portrait");
+  $("adTitle").textContent = "Position: " + item.file.name;
+  adEl.hidden = false;
+  document.body.classList.add("editing");
+  layoutAdjust();
+}
+
+function closeAdjust() {
+  adEl.hidden = true;
+  document.body.classList.remove("editing");
+  ad.item = null; ad.pointers.clear(); ad.drag = ad.pinch = null;
+}
+
+function setShape(s) {
+  ad.shape = s;
+  ad.snapX = ad.snapY = false;
+  for (const b of $("adShape").querySelectorAll("button")) b.classList.toggle("on", b.dataset.shape === s);
+  layoutAdjust();
+}
+$("adShape").addEventListener("click", e => { const b = e.target.closest("button[data-shape]"); if (b) setShape(b.dataset.shape); });
+
+function layoutAdjust() {
+  if (adEl.hidden) return;
+  const r = adStage.getBoundingClientRect();
+  ad.dpr = Math.min(2, window.devicePixelRatio || 1);
+  ad.cw = r.width; ad.ch = r.height;
+  adCanvas.width = Math.round(r.width * ad.dpr); adCanvas.height = Math.round(r.height * ad.dpr);
+  const R = RATIO[ad.shape];
+  ad.fw = Math.min(ad.cw * 0.92, ad.ch * 0.92 / R);
+  ad.fh = ad.fw * R;
+  ad.fx = (ad.cw - ad.fw) / 2; ad.fy = (ad.ch - ad.fh) / 2;
+  renderAdjust();
+}
+
+function renderAdjust() {
+  if (ad.frame) return;
+  ad.frame = requestAnimationFrame(() => {
+    ad.frame = 0;
+    if (!ad.item) return;
+    const c = ad.ctx, { margin, shadow } = settings(), sm = ad.item.small;
+    c.setTransform(ad.dpr, 0, 0, ad.dpr, 0, 0);
+    c.fillStyle = "#e7e2ec"; c.fillRect(0, 0, ad.cw, ad.ch);
+    c.save();
+    c.shadowColor = "rgba(35,31,43,.25)"; c.shadowBlur = 16; c.shadowOffsetY = 3;
+    c.fillStyle = "#fff"; c.fillRect(ad.fx, ad.fy, ad.fw, ad.fh);
+    c.restore();
+    c.save();
+    c.beginPath(); c.rect(ad.fx, ad.fy, ad.fw, ad.fh); c.clip();
+    c.translate(ad.fx, ad.fy);
+    drawFramed(c, ad.fw, ad.fh, sm, 0, 0, sm.width, sm.height, margin, shadow, ad.pos[ad.shape]);
+    c.restore();
+    // center guide lines while the product is snapped to the center
+    c.save();
+    c.strokeStyle = "#d63384"; c.lineWidth = 1.5; c.setLineDash([6, 5]);
+    if (ad.snapX && ad.pointers.size) { c.beginPath(); c.moveTo(ad.fx + ad.fw / 2, ad.fy); c.lineTo(ad.fx + ad.fw / 2, ad.fy + ad.fh); c.stroke(); }
+    if (ad.snapY && ad.pointers.size) { c.beginPath(); c.moveTo(ad.fx, ad.fy + ad.fh / 2); c.lineTo(ad.fx + ad.fw, ad.fy + ad.fh / 2); c.stroke(); }
+    c.restore();
+  });
+}
+
+function setPos(k, x, y) {
+  const p = ad.pos[ad.shape];
+  p.k = Math.max(0.2, Math.min(5, k));
+  ad.snapX = Math.abs(x) < SNAP; ad.snapY = Math.abs(y) < SNAP;
+  p.x = ad.snapX ? 0 : Math.max(-1, Math.min(1, x));
+  p.y = ad.snapY ? 0 : Math.max(-1, Math.min(1, y));
+  renderAdjust();
+}
+
+function adPoint(e) { const r = adCanvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function adPinch() {
+  const [p, q] = [...ad.pointers.values()];
+  const cur = ad.pos[ad.shape];
+  return { dist: Math.hypot(p.x - q.x, p.y - q.y) || 1, mid: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }, k: cur.k, x: cur.x, y: cur.y };
+}
+function adStartDrag(p) { const cur = ad.pos[ad.shape]; ad.drag = { px: p.x, py: p.y, x: cur.x, y: cur.y }; }
+
+adCanvas.addEventListener("pointerdown", e => {
+  if (e.button > 0) return;
+  try { adCanvas.setPointerCapture(e.pointerId); } catch { /* not every pointer can be captured */ }
+  const p = adPoint(e);
+  ad.pointers.set(e.pointerId, p);
+  if (ad.pointers.size === 1) { adStartDrag(p); ad.pinch = null; }
+  else if (ad.pointers.size === 2) { ad.drag = null; ad.pinch = adPinch(); }
+  renderAdjust();
+});
+adCanvas.addEventListener("pointermove", e => {
+  if (!ad.pointers.has(e.pointerId)) return;
+  const p = adPoint(e);
+  ad.pointers.set(e.pointerId, p);
+  if (ad.pinch && ad.pointers.size >= 2) {
+    const now = adPinch(), st = ad.pinch;
+    setPos(st.k * now.dist / st.dist, st.x + (now.mid.x - st.mid.x) / ad.fw, st.y + (now.mid.y - st.mid.y) / ad.fh);
+  } else if (ad.drag) {
+    const d = ad.drag;
+    setPos(ad.pos[ad.shape].k, d.x + (p.x - d.px) / ad.fw, d.y + (p.y - d.py) / ad.fh);
+  }
+});
+function adEnd(e) {
+  ad.pointers.delete(e.pointerId);
+  if (ad.pointers.size < 2) ad.pinch = null;
+  if (ad.pointers.size === 1) adStartDrag([...ad.pointers.values()][0]);   // keep moving with the finger that is left
+  if (ad.pointers.size === 0) ad.drag = null;
+  renderAdjust();
+}
+adCanvas.addEventListener("pointerup", adEnd);
+adCanvas.addEventListener("pointercancel", adEnd);
+adCanvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const p = ad.pos[ad.shape];
+  setPos(p.k * Math.exp(-e.deltaY * 0.0015), p.x, p.y);
+}, { passive: false });
+
+$("adBigger").addEventListener("click", () => { const p = ad.pos[ad.shape]; setPos(p.k * 1.08, p.x, p.y); });
+$("adSmaller").addEventListener("click", () => { const p = ad.pos[ad.shape]; setPos(p.k / 1.08, p.x, p.y); });
+$("adCenter").addEventListener("click", () => { const p = ad.pos[ad.shape]; setPos(p.k, 0, 0); });
+$("adReset").addEventListener("click", () => setPos(1, 0, 0));
+window.addEventListener("resize", layoutAdjust);
+
+$("adCancel").addEventListener("click", closeAdjust);
+$("adDone").addEventListener("click", () => {
+  const item = ad.item;
+  const changed = VARIANTS.filter(v => posKey(item.pos[v]) !== posKey(ad.pos[v]));
+  item.pos = ad.pos;
+  if (changed.length) {
+    for (const v of changed) item.chosen.add(v);   // a shape that was positioned is clearly wanted
+    item.saved = false;
+    pendingShare = null;
+    drawPreviews(item);
+    paintChoice(item);
+  }
+  closeAdjust();
+  refreshButtons();
+});
+
+refreshButtons();
 </script>
 </body>
 </html>

@@ -34,6 +34,10 @@ photo → **Touch up** any bad edges → **Save selected** → Save Images to Ph
 | Keep: Square / Portrait / Both | Sets the choice for every photo at once; individual photos can still be changed. |
 | Output size | Instagram (1080 wide), Website (2000 wide, default), Large (2400 wide). Portrait height = width × 1.25. |
 | Soft shadow | Optional switch: a soft oval studio shadow under the product. |
+| Position (per photo) | Like Pixelcut: drag the product with one finger to move it, pinch to resize. Snaps to center with pink guide lines. Buttons: Smaller, Bigger, Center, Reset. Square and portrait are positioned separately; positioning a shape also selects it. |
+| Speed | Uses the phone's graphics chip (WebGPU) when available: about 1.5 s per photo vs about 13 s on the regular processor (desktop test). Falls back automatically. The AI starts downloading as soon as photos are picked. |
+| Home Screen app | Manifest + icon (`manifest.webmanifest`, `icons/`). Added to the Home Screen, it opens full screen like an app named "BG Maker". |
+| Start over / I'm finished | Start over clears the batch (warns if photos aren't saved). I'm finished clears everything and shows an "All done" screen explaining how to leave (swipe up). Web pages can't send an iPhone to its Home Screen themselves. |
 | Touch up editor | Full screen. **Erase** removes leftover background; **Restore** paints back parts the AI cut off (the original shows faintly as a guide). Brush size, pinch-zoom (or mouse wheel), −/+/Fit buttons, Undo/Redo (15 steps), Reset to the AI result. |
 | Saving | iPhone share sheet (Save Images → Photos). On computers it downloads the files. |
 | File names | `<original name>-square.jpg`, `<original name>-portrait.jpg` (JPEG, quality 0.92). |
@@ -48,12 +52,12 @@ and no dependencies to install. The background-removal library loads from the js
 Processing pipeline for each photo:
 
 1. **`prepareInput`**: shrinks the photo so its long side is at most 2048 px (`PROCESS_SIDE`) to keep iPhones from running out of memory.
-2. **`cutout`**: runs the AI and gets a PNG with a transparent background. It uses `isnet_fp16` and falls back to `isnet_quint8` only if the standard model fails to load.
+2. **`cutout`**: runs the AI and gets a PNG with a transparent background. It uses `isnet_fp16` on `device: "gpu"` when `navigator.gpu` exists; if that fails it switches to `cpu`, and only then falls back to `isnet_quint8`. Add `?cpu` to the URL to force the processor (for troubleshooting). `preload()` is called when photos are added.
 3. **`findProduct(img, clean=true)`**:
    - **Clean:** alpha ≤ 48 → 0, alpha ≥ 208 → 255, linear in between. This wipes haze but keeps soft edges.
    - **Box:** the product box covers rows and columns with a real amount of solid pixels (≥ 0.4% of the width/height having alpha ≥ 128), plus 1% padding, so stray specks don't pull the framing off-center.
 4. **`setCutout`**: stores the cutout PNG and the box, builds a small (720 px) crop for fast previews, and draws the previews.
-5. **`drawFramed`**: draws the product box centered on white with the chosen margin (and the shadow if on). It's used for previews and for the full-size output.
+5. **`drawFramed`**: draws the product box centered on white with the chosen margin (and the shadow if on), then applies the photo's manual position `item.pos[shape] = { k, x, y }` (k = size relative to the auto-fit; x/y = shift as a fraction of frame width/height). It's used for previews, the Position screen and the full-size output, so all three always match.
 6. **Saving (`renderFull` → `shareOrDownload`)**: renders full-size JPEGs only when saving, cached per settings.
    - Safari only allows the share sheet right after a tap. If rendering takes too long, the button turns green: "Tap again to save N", and the second tap shares the ready files.
 
@@ -87,6 +91,9 @@ by Reset), `cut` (the current cutout, after any touch-up), `box`, `small`, `chos
   - **Needs touch-up:** black top in a wardrobe (an empty hanger beside it was kept; fix with Erase). Lace dress with a **sheer tulle skirt**: the AI itself drops sheer fabric. Fixed with Restore, and the framing updated correctly.
   - Speed: about 13 seconds per photo on a desktop computer. An iPhone is slower.
 - The store owner tested on iPhone: "working great."
+- Redesign (purple/berry theme, numbered steps, bottom action bar, Touch up / Position / Save per photo) checked at 375 px wide.
+- Graphics chip: 4 real photos in 6 seconds with the same cutout quality as the processor. Position: the preview and the 2000×2000 saved file put the product in the same spot.
+- Feedback that drove the redesign: the user wanted it friendlier, with more prominent buttons, more color, a clean way to exit, more speed, and Pixelcut-style drag to reposition.
 
 ### Known limitations
 
@@ -99,13 +106,12 @@ by Reset), `cut` (the current cutout, after any touch-up), `box`, `small`, `chos
 
 ## Ideas for later upgrades
 
-- Per-photo position and size adjustment (drag or zoom the product inside the frame).
 - A "smart" Restore/Erase brush that snaps to edges.
 - An option to keep only the largest object (auto-removes spare hangers).
 - More shapes (for example, 9:16 stories, or whatever size the online store recommends).
 - A background color other than white, and straightening a tilted product.
 - Uploading straight to the online store (for example, Shopify) instead of saving to Photos.
-- A progressive web app manifest and icon for a nicer Home Screen app, plus offline caching of the AI model.
+- Offline use (a service worker that caches the app and the AI model).
 
 ---
 

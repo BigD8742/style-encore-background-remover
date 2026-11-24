@@ -28,5 +28,8 @@ and the upgrade ideas list.
   Real photos can be fetched in the page from `images.unsplash.com/photo-<id>?w=1800&fm=jpg` (free license, CORS OK).
   Don't commit test photos.
 - The first run downloads about 90 MB. After that, about 13 s per photo on desktop.
-- The editor uses pointer events. Synthetic touches need distinct `pointerId`s; `setPointerCapture` is wrapped in try/catch.
+- The AI runs on the graphics chip (`device: "gpu"`) when available, with CPU fallback; `?cpu` in the URL forces the CPU. Check both paths after AI changes.
+- `window.close()` in "I'm finished" really closes script-opened test tabs; stub it when testing that flow.
+- Look and feel: purple/berry brand gradient (`--brand`, `--brand2`), green = save/selected, coral = start over/erase, blue = Position. Keep buttons big (48–58 px) and the main action in the bottom bar.
+- The Touch up and Position editors use pointer events. Synthetic touches need distinct `pointerId`s; `setPointerCapture` is wrapped in try/catch.
 - Check memory-heavy changes with iPhone limits in mind (photos are processed at a max of 2048 px; full-size renders only on save).
